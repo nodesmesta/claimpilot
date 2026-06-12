@@ -1,0 +1,20 @@
+{
+  "claim_id": "CLM-2026-3345",
+  "policyholder": "Michael Rodriguez",
+  "policy_type": "Comprehensive Auto",
+  "policy_number": "POL-7789-TX",
+  "incident_date": "2026-06-02",
+  "filing_date": "2026-06-08",
+  "incident_type": "Vehicle theft",
+  "description": "Car stolen from apartment parking lot overnight. Keys were in vehicle (admitted).",
+  "claim_amount": 18500,
+  "vehicle": "2022 Ford F-150",
+  "vehicle_value": 35000,
+  "location": "Apartment complex, Dallas TX",
+  "police_report": true,
+  "witnesses": 0,
+  "prior_claims_12mo": 2,
+  "photos_submitted": 1,
+  "medical_claim": false,
+  "days_since_incident": 6
+}

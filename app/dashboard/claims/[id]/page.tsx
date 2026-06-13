@@ -63,12 +63,62 @@ function MarkdownContent({ content }: { content: string }) {
   );
 }
 
+// Agent ID to name mapping
+const AGENT_NAMES: Record<string, string> = {
+  "36558bfa-2887-4f7d-8bd5-ba64771a5f76": "Reviewer",
+  "d39d2e28-ef86-4aa5-80aa-cbd0251b225e": "Gateway",
+  "a55a1e0d-8ddf-4d08-ac3d-18428c7de10a": "Resolver",
+  "57f4dc81-0bc6-4a4b-8c7a-6c1a67d6a6e7": "Investigator",
+  "c8a12f3e-5d9a-4b1c-9e7f-2a3b4c5d6e7f": "Adjuster",
+};
+
+function cleanContent(content: string, senderName: string): string {
+  // Replace @[[uuid]] with @AgentName
+  let cleaned = content.replace(/@\[\[([a-f0-9-]+)\]\]/g, (_, id) => {
+    const name = AGENT_NAMES[id];
+    return name ? `**@${name}**` : "";
+  });
+  // Remove @nodesemesta/handle mentions (redundant with above)
+  cleaned = cleaned.replace(/@nodesemesta\/\w+/g, "").trim();
+  // For Gateway messages: format the claim data JSON nicely
+  if (senderName === "Gateway" && cleaned.includes("Claim data:")) {
+    const parts = cleaned.split("Claim data:");
+    const intro = parts[0].trim();
+    try {
+      const jsonStr = parts[1].trim();
+      const data = JSON.parse(jsonStr);
+      const formatted = [
+        intro,
+        "",
+        "| Field | Value |",
+        "|-------|-------|",
+        `| **Claim ID** | ${data.claim_id || "—"} |`,
+        `| **Policyholder** | ${data.policyholder || "—"} |`,
+        `| **Policy** | ${data.policy_type || "—"} |`,
+        `| **Amount** | $${(data.claim_amount || 0).toLocaleString()} |`,
+        `| **Incident Date** | ${data.incident_date || "—"} |`,
+        `| **Witnesses** | ${data.witnesses ?? 0} |`,
+        `| **Photos** | ${data.photos_submitted ?? 0} |`,
+        `| **Police Report** | ${data.police_report ? "Yes" : "No"} |`,
+        `| **Medical** | ${data.medical_claim ? "Yes" : "No"} |`,
+        "",
+        data.description ? `> ${data.description.slice(0, 200)}` : "",
+      ].filter(Boolean).join("\n");
+      return formatted;
+    } catch {
+      return cleaned;
+    }
+  }
+  return cleaned;
+}
+
 export default function LiveInvestigationPage() {
   const { id: chatId } = useParams<{ id: string }>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [newMsgIds, setNewMsgIds] = useState<Set<string>>(new Set());
+  const [resolved, setResolved] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const fetchMessages = useCallback(async () => {
@@ -82,7 +132,6 @@ export default function LiveInvestigationPage() {
           const prevIds = new Set(prev.map((m) => m.id));
           const fresh = allMsgs.filter((m) => !prevIds.has(m.id));
           if (fresh.length === 0) return prev;
-          // Mark new agent messages for streaming
           const freshAgentIds = new Set(fresh.filter(m => m.sender_name !== "Gateway").map(m => m.id));
           if (freshAgentIds.size > 0 && prev.length > 0) {
             setNewMsgIds(p => new Set([...p, ...freshAgentIds]));
@@ -91,11 +140,14 @@ export default function LiveInvestigationPage() {
             (a, b) => new Date(a.inserted_at).getTime() - new Date(b.inserted_at).getTime()
           );
         });
-        // Try to resolve claim status
-        fetch(`/api/claims/${chatId}/resolve`, { method: "POST" }).catch(() => {});
+        // Try to resolve
+        const resolveRes = await fetch(`/api/claims/${chatId}/resolve`, { method: "POST" }).catch(() => null);
+        if (resolveRes) {
+          const r = await resolveRes.json().catch(() => null);
+          if (r?.resolved) setResolved(true);
+        }
       }
     } catch {
-      // silently retry next poll
     } finally {
       setLoading(false);
     }
@@ -103,9 +155,9 @@ export default function LiveInvestigationPage() {
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 3000);
+    const interval = setInterval(fetchMessages, resolved ? 10000 : 1000);
     return () => clearInterval(interval);
-  }, [fetchMessages]);
+  }, [fetchMessages, resolved]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -130,7 +182,7 @@ export default function LiveInvestigationPage() {
           <div className="px-6 py-4 border-b border-zinc-200">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-zinc-900">Live Investigation Room</h2>
-              <span className="px-2.5 py-1 rounded-full bg-yellow-50 text-yellow-700 text-xs font-medium border border-yellow-200">● LIVE</span>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${resolved ? "bg-green-50 text-green-700 border-green-200" : "bg-yellow-50 text-yellow-700 border-yellow-200"}`}>{resolved ? "✓ RESOLVED" : "● LIVE"}</span>
             </div>
             <p className="text-xs text-zinc-500 mt-1">Room: {chatId}</p>
           </div>
@@ -167,8 +219,8 @@ export default function LiveInvestigationPage() {
                     </div>
                     <div className="text-zinc-700 text-sm">
                       {newMsgIds.has(msg.id)
-                        ? <StreamingText text={msg.content} />
-                        : <MarkdownContent content={msg.content} />
+                        ? <StreamingText text={cleanContent(msg.content, msg.sender_name)} />
+                        : <MarkdownContent content={cleanContent(msg.content, msg.sender_name)} />
                       }
                     </div>
                   </div>

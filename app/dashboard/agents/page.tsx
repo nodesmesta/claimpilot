@@ -14,12 +14,14 @@ const agents = [
   { name: "Claim Reviewer", handle: "@nodesemesta/reviewer", role: "Triage & risk classification", color: "blue", icon: Users, desc: "Always in room. Classifies risk, auto-approves LOW claims, recruits specialists." },
   { name: "Fraud Investigator", handle: "@nodesemesta/investigator", role: "Fraud pattern analysis", color: "red", icon: Search, desc: "Recruited on-demand for MEDIUM/HIGH risk. Analyzes patterns, clarification loops." },
   { name: "Senior Adjuster", handle: "@nodesemesta/adjuster", role: "Final decision authority", color: "green", icon: Scale, desc: "Recruited for suspicious cases. Issues APPROVED/PARTIAL/DENIED with settlement." },
+  { name: "Resolution Agent", handle: "@nodesemesta/resolver", role: "Settlement & notification", color: "purple", icon: Bot, desc: "Executes resolution: sends email notification, processes payment, archives case." },
 ];
 
 const colorMap: Record<string, { iconBg: string; iconText: string; border: string }> = {
   blue: { iconBg: "bg-blue-100", iconText: "text-blue-600", border: "hover:border-blue-300" },
   red: { iconBg: "bg-red-100", iconText: "text-red-600", border: "hover:border-red-300" },
   green: { iconBg: "bg-green-100", iconText: "text-green-600", border: "hover:border-green-300" },
+  purple: { iconBg: "bg-purple-100", iconText: "text-purple-600", border: "hover:border-purple-300" },
 };
 
 export default function AgentsPage() {
@@ -63,7 +65,7 @@ export default function AgentsPage() {
       </div>
 
       {/* Agent Cards */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {agents.map((agent) => {
           const c = colorMap[agent.color];
           return (

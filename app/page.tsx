@@ -139,21 +139,24 @@ export default function Home() {
             <p className="text-zinc-500 text-lg">Each uses a different framework, recruited dynamically</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { name: "Claim Reviewer", role: "Always in room", framework: "LangGraph", icon: Users, color: "blue", features: ["Extract facts & classify risk", "Dynamic agent recruitment", "Answer clarification queries"] },
               { name: "Fraud Investigator", role: "Recruited on-demand", framework: "CrewAI", icon: Search, color: "red", features: ["Pattern & anomaly analysis", "Cross-reference fraud indicators", "Clarification loop with Reviewer"] },
               { name: "Senior Adjuster", role: "Recruited on-demand", framework: "Pydantic AI", icon: Scale, color: "green", features: ["Final decision authority", "Settlement calculation", "Compliance & regulatory check"] },
+              { name: "Resolution Agent", role: "Recruited post-decision", framework: "Band Native", icon: CheckCircle, color: "purple", features: ["Email notification delivery", "Payment processing", "Case closure & audit trail"] },
             ].map((agent, i) => (
               <div key={i} className={`scroll-reveal group p-8 rounded-2xl bg-white/70 backdrop-blur-sm border transition-all duration-300 hover:-translate-y-2 ${
                 agent.color === "blue" ? "border-blue-200 hover:border-blue-400 hover:shadow-xl hover:shadow-blue-500/10" :
                 agent.color === "red" ? "border-red-200 hover:border-red-400 hover:shadow-xl hover:shadow-red-500/10" :
+                agent.color === "purple" ? "border-purple-200 hover:border-purple-400 hover:shadow-xl hover:shadow-purple-500/10" :
                 "border-green-200 hover:border-green-400 hover:shadow-xl hover:shadow-green-500/10"
               }`}>
                 <div className="flex items-center gap-3 mb-6">
                   <div className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-lg ${
                     agent.color === "blue" ? "bg-blue-500 shadow-blue-500/20" :
                     agent.color === "red" ? "bg-red-500 shadow-red-500/20" :
+                    agent.color === "purple" ? "bg-purple-500 shadow-purple-500/20" :
                     "bg-green-500 shadow-green-500/20"
                   }`}>
                     <agent.icon className="w-5 h-5 text-white" />
@@ -161,7 +164,7 @@ export default function Home() {
                   <div>
                     <h3 className="font-semibold text-lg text-zinc-900">{agent.name}</h3>
                     <p className={`text-xs ${
-                      agent.color === "blue" ? "text-blue-600" : agent.color === "red" ? "text-red-600" : "text-green-600"
+                      agent.color === "blue" ? "text-blue-600" : agent.color === "red" ? "text-red-600" : agent.color === "purple" ? "text-purple-600" : "text-green-600"
                     }`}>{agent.role}</p>
                   </div>
                 </div>
@@ -169,7 +172,7 @@ export default function Home() {
                   {agent.features.map((f, j) => (
                     <div key={j} className="flex items-center gap-2 text-sm text-zinc-600">
                       <CheckCircle className={`w-4 h-4 shrink-0 ${
-                        agent.color === "blue" ? "text-blue-500" : agent.color === "red" ? "text-red-500" : "text-green-500"
+                        agent.color === "blue" ? "text-blue-500" : agent.color === "red" ? "text-red-500" : agent.color === "purple" ? "text-purple-500" : "text-green-500"
                       }`} />
                       <span>{f}</span>
                     </div>
@@ -179,6 +182,7 @@ export default function Home() {
                   <span className={`text-xs px-2 py-1 rounded font-medium ${
                     agent.color === "blue" ? "bg-blue-50 text-blue-600" :
                     agent.color === "red" ? "bg-red-50 text-red-600" :
+                    agent.color === "purple" ? "bg-purple-50 text-purple-600" :
                     "bg-green-50 text-green-600"
                   }`}>{agent.framework}</span>
                   <span className="text-xs px-2 py-1 rounded bg-zinc-100 text-zinc-500">GPT-4o</span>

@@ -9,7 +9,8 @@ import {
   X,
   ChevronRight,
   LogOut,
-  Shield
+  Shield,
+  MessageCircle
 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/app/lib/supabase-browser";
@@ -22,6 +23,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [user, setUser] = useState<{ email?: string; avatar_url?: string; full_name?: string; subscription_status?: SubscriptionStatus } | null>(null);
   const supabase = createClient();
 
@@ -158,10 +160,23 @@ export default function DashboardLayout({
         {/* Navbar */}
         <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-zinc-200 px-4 md:px-8 py-3 flex items-center justify-between">
           <h1 className="text-lg font-semibold text-zinc-900">ClaimPilot</h1>
-          <AIChatPanel />
+          <button
+            onClick={() => setChatOpen(!chatOpen)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${chatOpen ? "bg-zinc-200 text-zinc-700" : "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/20 hover:opacity-90"}`}
+          >
+            <MessageCircle className="w-4 h-4" />
+            {chatOpen ? "Close Chat" : "Chat with AI"}
+          </button>
         </div>
-        <div className="p-4 md:p-8">
-          {children}
+        <div className="flex h-[calc(100vh-57px)]">
+          <div className={`flex-1 overflow-y-auto p-4 md:p-8 ${chatOpen ? "" : ""}`}>
+            {children}
+          </div>
+          {chatOpen && (
+            <div className="w-96 border-l border-zinc-200 flex-shrink-0">
+              <AIChatPanel />
+            </div>
+          )}
         </div>
       </main>
     </div>

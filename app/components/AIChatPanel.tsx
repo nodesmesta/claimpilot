@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { MessageCircle, X, Send } from "lucide-react";
+import { Send, MessageCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -11,7 +11,6 @@ interface Message {
 }
 
 export default function AIChatPanel() {
-  const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,7 +41,6 @@ export default function AIChatPanel() {
         return;
       }
 
-      // Parse SSE stream
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let assistantContent = "";
@@ -70,29 +68,14 @@ export default function AIChatPanel() {
     setLoading(false);
   };
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium hover:opacity-90 transition shadow-lg shadow-blue-500/20"
-      >
-        <MessageCircle className="w-4 h-4" />
-        Chat with AI
-      </button>
-    );
-  }
-
   return (
-    <div className="fixed top-0 right-0 w-96 h-screen bg-white border-l border-zinc-200 shadow-2xl z-50 flex flex-col">
+    <div className="flex flex-col h-full bg-white">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-zinc-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50">
+      <div className="px-4 py-3 border-b border-zinc-200 bg-gradient-to-r from-blue-50 to-purple-50">
         <div className="flex items-center gap-2">
           <MessageCircle className="w-4 h-4 text-blue-600" />
           <span className="font-semibold text-sm text-zinc-900">ClaimPilot AI</span>
         </div>
-        <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-zinc-200 text-zinc-500">
-          <X className="w-4 h-4" />
-        </button>
       </div>
 
       {/* Messages */}

@@ -54,7 +54,9 @@ export async function POST(
     // 2. Parse decision
     const resolution = parseResolution(messages);
     if (!resolution) {
-      return NextResponse.json({ resolved: false, reason: "No final decision found yet" });
+      // Check if delivery failed — re-send with backoff if needed
+      const retryResult = await retryFailedDelivery(chatId, json.data || []);
+      return NextResponse.json({ resolved: false, reason: retryResult || "No final decision found yet" });
     }
 
     // 3. Get claim and check if already resolved
@@ -252,6 +254,77 @@ interface Resolution {
   settlementAmount: number | null;
   fraudScore: number | null;
   reasoning: string | null;
+}
+
+const MAX_RETRIES = 5;
+// Backoff intervals: 30s, 1min, 2min, 5min, 10min
+const RETRY_BACKOFF_MS = [30_000, 60_000, 120_000, 300_000, 600_000];
+
+/**
+ * Check if the latest message delivery failed. If so, re-send the message
+ * with exponential backoff (tracked via retry_count in DB).
+ */
+async function retryFailedDelivery(chatId: string, rawMessages: any[]): Promise<string | null> {
+  // Find messages with failed delivery
+  const failedMsgs = rawMessages.filter((m: any) => {
+    const statuses = m.metadata?.delivery_status || {};
+    return Object.values(statuses).some((ds: any) => ds.status === "failed");
+  });
+
+  if (failedMsgs.length === 0) return null;
+
+  // Get claim retry state
+  const { data: claim } = await supabase
+    .from("claims")
+    .select("retry_count, last_retry_at")
+    .eq("room_id", chatId)
+    .single();
+
+  if (!claim) return null;
+
+  const retryCount = claim.retry_count || 0;
+  if (retryCount >= MAX_RETRIES) {
+    // Max retries exceeded — mark claim as error
+    await supabase.from("claims").update({ status: "denied", resolution_reasoning: "Agent delivery failed after max retries" }).eq("room_id", chatId);
+    return "Max retries exceeded — claim marked as failed";
+  }
+
+  // Check backoff: enough time since last retry?
+  const backoffMs = RETRY_BACKOFF_MS[retryCount] || 600_000;
+  const lastRetry = claim.last_retry_at ? new Date(claim.last_retry_at).getTime() : 0;
+  if (Date.now() - lastRetry < backoffMs) {
+    return `Waiting for backoff (retry ${retryCount + 1}/${MAX_RETRIES}, next in ${Math.ceil((backoffMs - (Date.now() - lastRetry)) / 1000)}s)`;
+  }
+
+  // Find which agent failed and re-send
+  const lastFailed = failedMsgs[failedMsgs.length - 1];
+  const failedAgentId = Object.entries(lastFailed.metadata?.delivery_status || {})
+    .find(([, ds]: [string, any]) => ds.status === "failed")?.[0];
+
+  if (!failedAgentId) return null;
+
+  try {
+    // Re-send the original message content to trigger Band retry
+    await bandFetch(`/chats/${chatId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({
+        message: {
+          content: lastFailed.content,
+          mentions: [{ id: failedAgentId }],
+        },
+      }),
+    });
+
+    // Update retry count
+    await supabase.from("claims").update({
+      retry_count: retryCount + 1,
+      last_retry_at: new Date().toISOString(),
+    }).eq("room_id", chatId);
+
+    return `Retry ${retryCount + 1}/${MAX_RETRIES} sent (next backoff: ${RETRY_BACKOFF_MS[retryCount + 1] ? RETRY_BACKOFF_MS[retryCount + 1] / 1000 + 's' : 'max reached'})`;
+  } catch (err: any) {
+    return `Retry failed: ${err.message}`;
+  }
 }
 
 function parseResolution(messages: { content: string; sender_name: string; message_type: string }[]): Resolution | null {

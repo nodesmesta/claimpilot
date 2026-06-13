@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader } from "@heroui/react";
 
 export default function NewClaimPage() {
   const router = useRouter();
@@ -48,28 +47,30 @@ export default function NewClaimPage() {
     }
   };
 
+  const inputCls = "w-full bg-white border border-zinc-200 rounded-xl px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+
   return (
     <div className="max-w-4xl mx-auto">
-      <Card className="bg-zinc-900/50 border border-zinc-800">
-        <CardHeader className="px-8 py-6 border-b border-zinc-800">
-          <h1 className="text-2xl font-bold">Submit New Claim</h1>
-          <p className="text-zinc-400 mt-1">Fill in the claim details to start investigation</p>
-        </CardHeader>
-        <CardContent className="p-8">
+      <div className="rounded-2xl bg-white/60 backdrop-blur-sm border border-zinc-200 shadow-sm overflow-hidden">
+        <div className="px-8 py-6 border-b border-zinc-200">
+          <h1 className="text-2xl font-bold text-zinc-900">Submit New Claim</h1>
+          <p className="text-zinc-500 mt-1">Fill in the claim details to start investigation</p>
+        </div>
+        <div className="p-8">
           {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
               {error}
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">Policyholder Name</label>
-                <input name="policyholder" required placeholder="John Doe" className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Policyholder Name</label>
+                <input name="policyholder" required placeholder="John Doe" className={inputCls} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">Policy Type</label>
-                <select name="policy_type" required className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Policy Type</label>
+                <select name="policy_type" required className={inputCls}>
                   <option value="Comprehensive Auto">Comprehensive Auto</option>
                   <option value="Basic Auto">Basic Auto</option>
                   <option value="Home">Home</option>
@@ -79,62 +80,62 @@ export default function NewClaimPage() {
             </div>
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">Incident Type</label>
-                <input name="incident_type" required placeholder="Vehicle collision" className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Incident Type</label>
+                <input name="incident_type" required placeholder="Vehicle collision" className={inputCls} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">Incident Date</label>
-                <input name="incident_date" type="date" required className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Incident Date</label>
+                <input name="incident_date" type="date" required className={inputCls} />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">Description</label>
-              <textarea name="description" required placeholder="Describe the incident..." rows={3} className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <label className="block text-sm font-medium text-zinc-700 mb-2">Description</label>
+              <textarea name="description" required placeholder="Describe the incident..." rows={3} className={inputCls} />
             </div>
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">Claim Amount ($)</label>
-                <input name="claim_amount" type="number" required placeholder="18500" className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Claim Amount ($)</label>
+                <input name="claim_amount" type="number" required placeholder="18500" className={inputCls} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">Location</label>
-                <input name="location" required placeholder="City, State" className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Location</label>
+                <input name="location" required placeholder="City, State" className={inputCls} />
               </div>
             </div>
             <div className="grid md:grid-cols-3 gap-6">
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">Witnesses</label>
-                <input name="witnesses" type="number" defaultValue={0} className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Witnesses</label>
+                <input name="witnesses" type="number" defaultValue={0} className={inputCls} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">Photos Submitted</label>
-                <input name="photos" type="number" defaultValue={0} className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Photos Submitted</label>
+                <input name="photos" type="number" defaultValue={0} className={inputCls} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">Prior Claims (12mo)</label>
-                <input name="prior_claims" type="number" defaultValue={0} className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-zinc-700 mb-2">Prior Claims (12mo)</label>
+                <input name="prior_claims" type="number" defaultValue={0} className={inputCls} />
               </div>
             </div>
             <div className="flex gap-6">
-              <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
-                <input name="police_report" type="checkbox" className="w-4 h-4 rounded" />
+              <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+                <input name="police_report" type="checkbox" className="w-4 h-4 rounded border-zinc-300" />
                 Police report filed
               </label>
-              <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
-                <input name="medical_claim" type="checkbox" className="w-4 h-4 rounded" />
+              <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+                <input name="medical_claim" type="checkbox" className="w-4 h-4 rounded border-zinc-300" />
                 Includes medical claim
               </label>
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-xl transition-colors"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-xl transition shadow-lg shadow-blue-500/20"
             >
               {loading ? "Submitting to Investigation..." : "Submit Claim"}
             </button>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

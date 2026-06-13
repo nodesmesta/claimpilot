@@ -80,6 +80,28 @@ export async function POST(req: NextRequest) {
       claimData = await req.json();
     }
 
+    // Validate: claim must be for user's own registered asset
+    const policyNumber = (claimData.policy_type as string)?.match(/POL-[\w-]+/)?.[0]
+      || (claimData.policy_number as string);
+    if (policyNumber) {
+      const { data: asset } = await supabase
+        .from("assets")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("policy_number", policyNumber)
+        .single();
+      if (!asset) {
+        return NextResponse.json({ 
+          error: `Policy ${policyNumber} is not registered in your assets. Please register your asset first.` 
+        }, { status: 403 });
+      }
+    } else {
+      // No policy found in claim — reject
+      return NextResponse.json({ 
+        error: "No policy number found in claim. Ensure your claim PDF contains a valid policy reference." 
+      }, { status: 400 });
+    }
+
     // Create Band room and submit
     const chatId = await createBandRoom();
 

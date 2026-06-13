@@ -243,7 +243,7 @@ function parseResolution(messages: { content: string; sender_name: string; messa
 
   let riskLevel: string | null = null;
   for (const msg of textMsgs) {
-    if (msg.sender_name === "Claim Reviewer") {
+    if (msg.sender_name === "Claim Reviewer" || msg.sender_name === "Reviewer") {
       const riskMatch = msg.content.match(/(?:risk|classification|level)[:\s]*(LOW|MEDIUM|HIGH)/i);
       if (riskMatch) riskLevel = riskMatch[1].toUpperCase();
     }
@@ -276,15 +276,15 @@ function parseResolution(messages: { content: string; sender_name: string; messa
     }
   }
 
-  // Priority 3: Reviewer auto-approve for LOW
+  // Priority 3: Reviewer auto-approve (with or without explicit LOW risk)
   for (let i = textMsgs.length - 1; i >= 0; i--) {
     const msg = textMsgs[i];
-    if (msg.sender_name === "Claim Reviewer") {
-      const approveMatch = msg.content.match(/approv(e|ed|al)/i);
-      if (approveMatch && riskLevel === "LOW") {
+    if (msg.sender_name === "Claim Reviewer" || msg.sender_name === "Reviewer") {
+      const approveMatch = msg.content.match(/\bapprov(e|ed|al)\b/i);
+      if (approveMatch) {
         return {
           status: "approved",
-          riskLevel: "LOW",
+          riskLevel: riskLevel || "LOW",
           verdict: "AUTO_APPROVED",
           settlementAmount: extractAmount(msg.content),
           fraudScore: 0,

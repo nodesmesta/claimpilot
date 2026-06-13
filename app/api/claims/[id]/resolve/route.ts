@@ -195,20 +195,26 @@ async function sendNotification(
   decision: string,
   resolution: Resolution
 ) {
-  const subject = decision === "DENIED"
-    ? `Claim ${claimId} — Decision: Denied`
-    : `Claim ${claimId} — Decision: ${decision === "PARTIAL_APPROVED" ? "Partially Approved" : "Approved"}`;
+  // Human-readable decision
+  const displayDecision = decision === "DENIED" ? "Denied"
+    : decision === "PARTIAL_APPROVED" ? "Partially Approved"
+    : "Approved";
+
+  const subject = `Claim ${claimId} — Decision: ${displayDecision}`;
+
+  const amount = resolution.settlementAmount;
 
   const body = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #1e293b;">Claim Decision Notification</h2>
       <p>Dear ${policyholder},</p>
-      <p>Your insurance claim <strong>${claimId}</strong> has been reviewed.</p>
+      <p>Your insurance claim <strong>${claimId}</strong> has been reviewed by our AI investigation team.</p>
       <table style="border-collapse: collapse; width: 100%; margin: 16px 0;">
-        <tr><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: bold;">Decision</td><td style="padding: 8px; border: 1px solid #e2e8f0;">${decision}</td></tr>
-        ${resolution.settlementAmount ? `<tr><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: bold;">Settlement</td><td style="padding: 8px; border: 1px solid #e2e8f0;">$${resolution.settlementAmount.toLocaleString()}</td></tr>` : ""}
+        <tr><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: bold;">Decision</td><td style="padding: 8px; border: 1px solid #e2e8f0;">${displayDecision}</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: bold;">Risk Level</td><td style="padding: 8px; border: 1px solid #e2e8f0;">${resolution.riskLevel || "N/A"}</td></tr>
+        ${amount ? `<tr><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: bold;">Settlement Amount</td><td style="padding: 8px; border: 1px solid #e2e8f0;">$${amount.toLocaleString()}</td></tr>` : ""}
       </table>
-      ${decision !== "DENIED" ? "<p>Payment will be processed within 5 business days via wire transfer.</p>" : "<p>If you disagree with this decision, you may file an appeal within 30 days.</p>"}
+      ${decision !== "DENIED" ? `<p>Your claim has been <strong>approved</strong>${amount ? ` for <strong>$${amount.toLocaleString()}</strong>` : ""}. Payment will be processed within 5 business days via wire transfer.</p>` : "<p>If you disagree with this decision, you may file an appeal within 30 days.</p>"}
       <p style="color: #64748b; font-size: 12px; margin-top: 24px;">— ClaimPilot AI Claims Investigation</p>
     </div>`;
 

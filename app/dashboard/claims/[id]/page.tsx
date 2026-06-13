@@ -17,6 +17,7 @@ interface Message {
 
 const agentStyle: Record<string, { bg: string; border: string; dot: string }> = {
   "Claim Reviewer": { bg: "bg-blue-50", border: "border-blue-200", dot: "bg-blue-500" },
+  "Reviewer": { bg: "bg-blue-50", border: "border-blue-200", dot: "bg-blue-500" },
   "Fraud Investigator": { bg: "bg-red-50", border: "border-red-200", dot: "bg-red-500" },
   "Senior Adjuster": { bg: "bg-green-50", border: "border-green-200", dot: "bg-green-500" },
 };
@@ -25,11 +26,39 @@ function getStyle(name: string) {
   return agentStyle[name] || { bg: "bg-zinc-50", border: "border-zinc-200", dot: "bg-zinc-400" };
 }
 
+function StreamingText({ text, speed = 12 }: { text: string; speed?: number }) {
+  const [displayed, setDisplayed] = useState("");
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    let i = 0;
+    setDisplayed("");
+    setDone(false);
+    const interval = setInterval(() => {
+      i++;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) {
+        clearInterval(interval);
+        setDone(true);
+      }
+    }, speed);
+    return () => clearInterval(interval);
+  }, [text, speed]);
+
+  return (
+    <span>
+      {displayed}
+      {!done && <span className="inline-block w-1.5 h-4 bg-current opacity-70 animate-pulse ml-0.5 align-middle" />}
+    </span>
+  );
+}
+
 export default function LiveInvestigationPage() {
   const { id: chatId } = useParams<{ id: string }>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [newMsgIds, setNewMsgIds] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
   const sinceRef = useRef<string | null>(null);
 
@@ -45,6 +74,11 @@ export default function LiveInvestigationPage() {
           const ids = new Set(prev.map((m) => m.id));
           const unique = newMsgs.filter((m) => !ids.has(m.id));
           if (unique.length === 0) return prev;
+          // Mark truly new messages for streaming (skip first load)
+          if (sinceRef.current) {
+            const freshIds = new Set(unique.filter(m => m.sender_name !== "Gateway").map(m => m.id));
+            if (freshIds.size > 0) setNewMsgIds(prev => new Set([...prev, ...freshIds]));
+          }
           return [...prev, ...unique].sort(
             (a, b) => new Date(a.inserted_at).getTime() - new Date(b.inserted_at).getTime()
           );
@@ -127,7 +161,12 @@ export default function LiveInvestigationPage() {
                       <span className="font-semibold text-sm text-zinc-900">{msg.sender_name}</span>
                       <span className="text-xs text-zinc-400 ml-auto">{formatTime(msg.inserted_at)}</span>
                     </div>
-                    <p className="text-zinc-700 text-sm whitespace-pre-wrap">{msg.content}</p>
+                    <p className="text-zinc-700 text-sm whitespace-pre-wrap">
+                      {newMsgIds.has(msg.id)
+                        ? <StreamingText text={msg.content} />
+                        : msg.content
+                      }
+                    </p>
                   </div>
                 );
               })}

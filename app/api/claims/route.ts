@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
     const claimJson = JSON.stringify(claimData);
     const assetContext = `\n\nRegistered Asset:\n- Policy: ${asset.policy_number} (${asset.policy_type})\n- Policyholder: ${asset.policyholder}\n- Vehicle: ${asset.vehicle_description || "N/A"}\n- Estimated Value: $${(asset.estimated_value || 0).toLocaleString()}\n- Deductible: $${(asset.deductible || 0).toLocaleString()}\n- Payment Method: ${asset.payment_method || "N/A"}`;
 
-    const instructions = `@nodesemesta/reviewer New claim submitted for triage. Review and classify risk. If risk is MEDIUM or HIGH, recruit the investigator using [RECRUIT:investigator].\n\nClaim data: ${claimJson}${assetContext}`;
+    const instructions = `@nodesemesta/reviewer New claim submitted for triage. Review and classify risk. If risk is MEDIUM or HIGH, output the recruitment tag for the investigator.\n\nClaim data: ${claimJson}${assetContext}`;
 
     await sendMessageToRoom(chatId, instructions, [{ id: CLAIM_REVIEWER_ID }]);
 

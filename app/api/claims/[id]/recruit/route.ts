@@ -45,8 +45,9 @@ export async function POST(
     const recruited: string[] = claim?.recruited_agents || [];
     const newRecruits: string[] = [];
 
-    // Scan for [RECRUIT:role] tags
+    // Scan for [RECRUIT:role] tags — only from agent responses, not Gateway instructions
     for (const msg of messages) {
+      if (msg.sender_name === "Gateway") continue; // Skip our own instructions
       const matches = msg.content.matchAll(/\[RECRUIT:(\w+)\]/gi);
       for (const match of matches) {
         const role = match[1].toLowerCase();

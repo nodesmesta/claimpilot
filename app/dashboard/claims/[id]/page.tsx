@@ -136,21 +136,20 @@ export default function LiveInvestigationPage() {
           const prevIds = new Set(prev.map((m) => m.id));
           const fresh = allMsgs.filter((m) => !prevIds.has(m.id));
           if (fresh.length === 0) return prev;
-          const freshAgentIds = new Set(fresh.filter(m => m.sender_name !== "Gateway").map(m => m.id));
-          if (freshAgentIds.size > 0 && prev.length > 0) {
-            setNewMsgIds(p => new Set([...p, ...freshAgentIds]));
+          const freshAgentMsgs = fresh.filter(m => m.sender_name !== "Gateway");
+          if (freshAgentMsgs.length > 0 && prev.length > 0) {
+            setNewMsgIds(p => new Set([...p, ...freshAgentMsgs.map(m => m.id)]));
+          }
+          // Only trigger recruit/resolve when there are NEW agent messages
+          if (freshAgentMsgs.length > 0) {
+            fetch(`/api/claims/${chatId}/recruit`, { method: "POST" }).catch(() => null);
+            fetch(`/api/claims/${chatId}/resolve`, { method: "POST" })
+              .then(r => r?.json()).then(r => { if (r?.resolved) setResolved(true); }).catch(() => null);
           }
           return allMsgs.sort(
             (a, b) => new Date(a.inserted_at).getTime() - new Date(b.inserted_at).getTime()
           );
         });
-        // Check for recruitment needs then try to resolve
-        await fetch(`/api/claims/${chatId}/recruit`, { method: "POST" }).catch(() => null);
-        const resolveRes = await fetch(`/api/claims/${chatId}/resolve`, { method: "POST" }).catch(() => null);
-        if (resolveRes) {
-          const r = await resolveRes.json().catch(() => null);
-          if (r?.resolved) setResolved(true);
-        }
       }
     } catch {
     } finally {

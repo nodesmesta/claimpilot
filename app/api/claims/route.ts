@@ -147,26 +147,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to save claim to database" }, { status: 500 });
     }
 
-    // Fire-and-forget: auto-resolve after agent responds
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://pilot.nodesemesta.com';
-    scheduleResolve(appUrl, chatId);
-
     return NextResponse.json({ room_id: chatId, claim_id: claimId, status: "submitted", parsed: claimData });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
-
-function scheduleResolve(appUrl: string, chatId: string) {
-  // On Vercel serverless, setTimeout won't survive after response is sent.
-  // Use a chain of self-calling fetches with delay via edge/external ping.
-  // First immediate poll after a short delay handled by frontend polling.
-  // Fire the first recruit+resolve immediately (5s won't work in serverless).
-  // The frontend dashboard polls /messages and can trigger /recruit + /resolve.
-  // As a best-effort, fire one immediate attempt:
-  fetch(`${appUrl}/api/claims/${chatId}/recruit`, { method: "POST" }).catch(() => {});
-  fetch(`${appUrl}/api/claims/${chatId}/resolve`, { method: "POST" }).catch(() => {});
 }
 
 function parseClaimPDF(text: string): Record<string, unknown> {

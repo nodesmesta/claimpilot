@@ -48,7 +48,7 @@ export async function GET(
   try {
     const { id: chatId } = await params;
 
-    let path = `/api/v1/agent/chats/${chatId}/messages`;
+    let path = `/api/v1/agent/chats/${chatId}/context`;
 
     const data = await bandFetchWithRetry(path);
     

@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   LayoutDashboard, 
   FileText, 
   Bot, 
   Menu, 
   X,
-  ChevronRight
+  ChevronRight,
+  LogOut
 } from "lucide-react";
-
 import Link from "next/link";
+import { createClient } from "@/app/lib/supabase-browser";
+import type { UserProfile, SubscriptionStatus } from "@/app/lib/types";
 
 export default function DashboardLayout({
   children,
@@ -18,6 +20,36 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [user, setUser] = useState<{ email?: string; avatar_url?: string; full_name?: string; subscription_status?: SubscriptionStatus } | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user: u } }) => {
+      if (u) {
+        setUser({
+          email: u.email,
+          avatar_url: u.user_metadata?.avatar_url || u.user_metadata?.picture,
+          full_name: u.user_metadata?.full_name || u.user_metadata?.name,
+        });
+        // Fetch subscription from profiles
+        supabase.from("profiles").select("subscription_status").eq("id", u.id).single()
+          .then(({ data }) => {
+            if (data) setUser(prev => prev ? { ...prev, subscription_status: data.subscription_status } : prev);
+          });
+      }
+    });
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  };
+
+  const badgeColor = (s?: SubscriptionStatus) => {
+    if (s === "pro") return "bg-blue-100 text-blue-700 border-blue-200";
+    if (s === "enterprise") return "bg-purple-100 text-purple-700 border-purple-200";
+    return "bg-zinc-100 text-zinc-600 border-zinc-200";
+  };
 
   const menuItems = [
     {
@@ -83,6 +115,30 @@ export default function DashboardLayout({
             ))}
           </div>
         </nav>
+
+        {/* User info */}
+        {user && (
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-zinc-200 bg-white/80 backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              {user.avatar_url ? (
+                <img src={user.avatar_url} alt="" className="w-9 h-9 rounded-full" />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-zinc-200 flex items-center justify-center text-sm font-medium text-zinc-600">
+                  {(user.full_name || user.email || "?")[0].toUpperCase()}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-zinc-900 truncate">{user.full_name || user.email}</p>
+                <span className={`inline-block text-xs px-2 py-0.5 rounded-full border ${badgeColor(user.subscription_status)}`}>
+                  {user.subscription_status || "free"}
+                </span>
+              </div>
+              <button onClick={handleSignOut} className="p-2 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700">
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* Mobile overlay */}

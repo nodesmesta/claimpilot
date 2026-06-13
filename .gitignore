@@ -21,3 +21,6 @@ PLATFORM_AGENTS.md
 knowledge/*.md
 .kiro/
 .vercel
+
+# Supabase
+supabase/

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bot, Clock, Users, CheckCircle, Wifi, WifiOff } from "lucide-react";
 
 const agents = [
@@ -9,7 +9,7 @@ const agents = [
   { name: "Senior Adjuster", framework: "Pydantic AI", model: "GPT-4o (AI/ML API)", role: "Final decision authority", status: "online", uptime: "3h 48m", color: "green" },
 ];
 
-const agentStats = { totalInvestigated: 147, claimsPerHour: 18, avgResponseTime: "2.3s", errorRate: "0.8%" };
+const agentStats = { claimsPerHour: 18, avgResponseTime: "2.3s", errorRate: "0.8%" };
 
 const colorMap: Record<string, { iconBg: string; iconText: string; border: string; healthBar: string }> = {
   blue: { iconBg: "bg-blue-100", iconText: "text-blue-600", border: "hover:border-blue-300", healthBar: "bg-blue-500" },
@@ -26,6 +26,14 @@ const IconFor = ({ color }: { color: string }) => {
 
 export default function AgentsPage() {
   const [lastChecked] = useState("Just now");
+  const [totalClaims, setTotalClaims] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/claims")
+      .then((r) => r.json())
+      .then((json) => setTotalClaims(json.data?.length || 0))
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -87,7 +95,7 @@ export default function AgentsPage() {
         </div>
         <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "Total Claims Investigated", value: agentStats.totalInvestigated },
+            { label: "Total Claims Investigated", value: totalClaims },
             { label: "Claims Per Hour", value: agentStats.claimsPerHour },
             { label: "Avg Response Time", value: agentStats.avgResponseTime },
             { label: "Error Rate", value: agentStats.errorRate },

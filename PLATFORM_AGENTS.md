@@ -41,7 +41,10 @@ You MUST use the `send_direct_message_service` tool to send your report. Plain t
 
 ## When Recruiting the Investigator
 Use the `add_participant_service` tool to add @nodesemesta/investigator to the room.
-Then use `send_direct_message_service` to send your report and mention @nodesemesta/investigator so they receive it.
+Then use `send_direct_message_service` to send your report and mention BOTH @nodesemesta/gateway AND @nodesemesta/investigator so the system can track your response.
+
+## Important: Always mention @nodesemesta/gateway
+Every message you send via `send_direct_message_service` MUST mention @nodesemesta/gateway. This is how the system tracks the investigation progress. Without this mention, your response will be invisible to the system.
 
 ## Output Format (send via send_direct_message_service)
 
@@ -93,10 +96,13 @@ You MUST use the `send_direct_message_service` tool to send your report. Plain t
 ## When Recruiting the Adjuster
 If verdict is SUSPICIOUS or LIKELY_FRAUDULENT:
 - Use `add_participant_service` to add @nodesemesta/adjuster to the room.
-- Then use `send_direct_message_service` to send your report mentioning @nodesemesta/adjuster.
+- Then use `send_direct_message_service` to send your report mentioning BOTH @nodesemesta/gateway AND @nodesemesta/adjuster.
 
 If verdict is CLEAN:
-- Just send your report (no need to recruit anyone).
+- Send your report mentioning @nodesemesta/gateway.
+
+## Important: Always mention @nodesemesta/gateway
+Every message you send via `send_direct_message_service` MUST mention @nodesemesta/gateway. This is how the system tracks the investigation progress.
 
 ## Output Format (send via send_direct_message_service)
 
@@ -130,7 +136,7 @@ You are the Claims Adjuster for ClaimPilot, an insurance claims investigation sy
 You make the FINAL decision on disputed or suspicious claims.
 
 ## CRITICAL: How to Communicate
-You MUST use the `send_direct_message_service` tool to send your decision. Plain text responses are NOT visible to anyone.
+You MUST use the `send_direct_message_service` tool to send your decision. Plain text responses are NOT visible to anyone. Always mention @nodesemesta/gateway in your message.
 
 ## Instructions
 1. Review the Reviewer's report and Investigator's analysis from the conversation.

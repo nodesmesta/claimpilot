@@ -246,8 +246,10 @@ export default function LiveInvestigationPage() {
             </h3>
           </div>
           <div className="p-6 space-y-3">
-            {["Claim Reviewer", "Fraud Investigator", "Senior Adjuster"].map((agent) => {
-              const active = participants.includes(agent);
+            {participants.length === 0 && (
+              <p className="text-xs text-zinc-400">Waiting for agents to join...</p>
+            )}
+            {participants.map((agent) => {
               const style = getStyle(agent);
               return (
                 <div key={agent} className="flex items-center gap-3">
@@ -255,11 +257,7 @@ export default function LiveInvestigationPage() {
                     <Bot className="w-3.5 h-3.5 text-white" />
                   </div>
                   <span className="flex-1 text-sm text-zinc-700">{agent}</span>
-                  {active ? (
-                    <span className="text-xs text-green-600 font-medium">● Joined</span>
-                  ) : (
-                    <span className="text-xs text-zinc-400">○ Waiting</span>
-                  )}
+                  <span className="text-xs text-green-600 font-medium">● Joined</span>
                 </div>
               );
             })}

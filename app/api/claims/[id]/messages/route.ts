@@ -47,13 +47,8 @@ export async function GET(
 ) {
   try {
     const { id: chatId } = await params;
-    const searchParams = req.nextUrl.searchParams;
-    const since = searchParams.get('since');
 
-    let path = `/api/v1/agent/chats/${chatId}/context`;
-    if (since) {
-      path += `?since=${encodeURIComponent(since)}`;
-    }
+    let path = `/api/v1/agent/chats/${chatId}/messages`;
 
     const data = await bandFetchWithRetry(path);
     

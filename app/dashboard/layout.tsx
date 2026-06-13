@@ -58,6 +58,11 @@ export default function DashboardLayout({
       href: "/dashboard",
     },
     {
+      name: "Assets",
+      icon: <FileText className="w-5 h-5" />,
+      href: "/dashboard/assets",
+    },
+    {
       name: "Claims",
       icon: <FileText className="w-5 h-5" />,
       href: "/dashboard/claims",

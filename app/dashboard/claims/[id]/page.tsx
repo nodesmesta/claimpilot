@@ -140,9 +140,8 @@ export default function LiveInvestigationPage() {
           if (freshAgentMsgs.length > 0 && prev.length > 0) {
             setNewMsgIds(p => new Set([...p, ...freshAgentMsgs.map(m => m.id)]));
           }
-          // Only trigger recruit/resolve when there are NEW agent messages
+          // Try to resolve when new agent messages appear
           if (freshAgentMsgs.length > 0) {
-            fetch(`/api/claims/${chatId}/recruit`, { method: "POST" }).catch(() => null);
             fetch(`/api/claims/${chatId}/resolve`, { method: "POST" })
               .then(r => r?.json()).then(r => { if (r?.resolved) setResolved(true); }).catch(() => null);
           }

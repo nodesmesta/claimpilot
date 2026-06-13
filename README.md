@@ -20,7 +20,7 @@ User submits claim → Frontend creates Band room + adds Reviewer
 → Backend resolves: email + payment + Resolver confirmation
 ```
 
-**Key design:** Agents recruit each other via `[RECRUIT:role]` tags. The backend polls for these tags and dynamically adds participants. No agent is pre-added — only the Reviewer starts in the room.
+**Key design:** Agents recruit each other using Band's native `add_participant_service` tool and communicate via `send_direct_message_service`. Band handles all message delivery, retry, and routing. The backend only reads messages to detect final decisions.
 
 ## Agent Architecture (Platform Agents)
 
@@ -41,7 +41,6 @@ Agent prompts and structured output formats are defined in [PLATFORM_AGENTS.md](
 | POST | `/api/claims` | Submit a new claim (PDF or JSON) |
 | GET | `/api/claims` | List user's claims |
 | GET | `/api/claims/[id]/messages` | Poll Band room messages |
-| POST | `/api/claims/[id]/recruit` | Detect & execute agent recruitment |
 | POST | `/api/claims/[id]/resolve` | Parse agent decisions & finalize |
 | POST | `/api/claims/[id]/notify` | Send email notification |
 | POST | `/api/claims/[id]/payment` | Record payment |
@@ -56,7 +55,6 @@ project/
 │   │   │   ├── route.ts              # Submit/list claims
 │   │   │   └── [id]/
 │   │   │       ├── messages/route.ts  # Poll room messages
-│   │   │       ├── recruit/route.ts   # Dynamic agent recruitment
 │   │   │       ├── resolve/route.ts   # Parse decisions & finalize
 │   │   │       ├── notify/route.ts    # Email notification
 │   │   │       └── payment/route.ts   # Payment recording
@@ -113,9 +111,6 @@ curl -X POST http://localhost:3000/api/claims \
 
 # Poll messages
 curl http://localhost:3000/api/claims/<room_id>/messages
-
-# Manually trigger recruitment check
-curl -X POST http://localhost:3000/api/claims/<room_id>/recruit
 
 # Manually trigger resolution
 curl -X POST http://localhost:3000/api/claims/<room_id>/resolve

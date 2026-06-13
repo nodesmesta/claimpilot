@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "check-band": "node scripts/check-band.js",
+    "sync-env": "node scripts/sync-vercel-env.js"
   },
   "dependencies": {
     "@heroui/react": "^3.1.0",

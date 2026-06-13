@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { supabase } from "@/app/lib/supabase";
+import { 
+  bandFetch, 
+  createBandRoom, 
+  addParticipantToRoom, 
+  sendMessageToRoom,
+  validateBandEnvironment 
+} from "@/app/lib/band";
 
-const BAND_API_URL = process.env.BAND_API_URL || "https://app.band.ai";
-const BAND_AGENT_API_KEY = process.env.BAND_AGENT_API_KEY!;
 const CLAIM_REVIEWER_ID = process.env.CLAIM_REVIEWER_ID!;
+const INVESTIGATOR_ID = process.env.INVESTIGATOR_ID!;
+const ADJUSTER_ID = process.env.ADJUSTER_ID!;
 const FREE_PLAN_LIMIT = 10;
-
-async function bandFetch(path: string, options: RequestInit = {}) {
-  const res = await fetch(`${BAND_API_URL}/api/v1/agent${path}`, {
-    ...options,
-    headers: { "Content-Type": "application/json", "X-API-Key": BAND_AGENT_API_KEY, ...options.headers },
-  });
-  if (!res.ok) throw new Error(`Band API ${res.status}: ${await res.text()}`);
-  return res.json();
-}
 
 async function getUserFromRequest(req: NextRequest) {
   const authClient = createServerClient(
@@ -54,6 +52,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Validate Band environment before proceeding
+    const isBandReady = await validateBandEnvironment();
+    if (!isBandReady) {
+      return NextResponse.json({ 
+        error: "Band agent configuration incomplete. Please check environment variables." 
+      }, { status: 500 });
+    }
+
     // Determine content type — PDF or JSON
     const contentType = req.headers.get("content-type") || "";
     let claimData: Record<string, unknown>;
@@ -75,35 +81,27 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Band room and submit
-    const roomRes = await bandFetch("/chats", { method: "POST", body: JSON.stringify({ chat: {} }) });
-    const chatId = roomRes.data.id;
+    const chatId = await createBandRoom();
 
     // Pre-triage: determine risk level from claim data
     const riskLevel = triageClaim(claimData);
 
-    // Always add Reviewer
-    await bandFetch(`/chats/${chatId}/participants`, {
-      method: "POST",
-      body: JSON.stringify({ participant: { participant_id: CLAIM_REVIEWER_ID } }),
-    });
+    // Add participants based on risk level
+    try {
+      await addParticipantToRoom(chatId, CLAIM_REVIEWER_ID);
 
-    // For MEDIUM/HIGH: also add Investigator upfront
-    const INVESTIGATOR_ID = process.env.INVESTIGATOR_ID;
-    const ADJUSTER_ID = process.env.ADJUSTER_ID;
+      if (riskLevel !== "LOW") {
+        await addParticipantToRoom(chatId, INVESTIGATOR_ID);
+      }
 
-    if (riskLevel !== "LOW" && INVESTIGATOR_ID) {
-      await bandFetch(`/chats/${chatId}/participants`, {
-        method: "POST",
-        body: JSON.stringify({ participant: { participant_id: INVESTIGATOR_ID } }),
-      });
-    }
-
-    // For HIGH: also add Adjuster upfront
-    if (riskLevel === "HIGH" && ADJUSTER_ID) {
-      await bandFetch(`/chats/${chatId}/participants`, {
-        method: "POST",
-        body: JSON.stringify({ participant: { participant_id: ADJUSTER_ID } }),
-      });
+      if (riskLevel === "HIGH") {
+        await addParticipantToRoom(chatId, ADJUSTER_ID);
+      }
+    } catch (error) {
+      console.error("Error adding participants:", error);
+      return NextResponse.json({ 
+        error: "Failed to setup agent participants. Please try again." 
+      }, { status: 500 });
     }
 
     // Send claim with clear instructions to all participants
@@ -118,13 +116,10 @@ export async function POST(req: NextRequest) {
     }
 
     const mentions = [{ id: CLAIM_REVIEWER_ID }];
-    if (riskLevel !== "LOW" && INVESTIGATOR_ID) mentions.push({ id: INVESTIGATOR_ID });
-    if (riskLevel === "HIGH" && ADJUSTER_ID) mentions.push({ id: ADJUSTER_ID });
+    if (riskLevel !== "LOW") mentions.push({ id: INVESTIGATOR_ID });
+    if (riskLevel === "HIGH") mentions.push({ id: ADJUSTER_ID });
 
-    await bandFetch(`/chats/${chatId}/messages`, {
-      method: "POST",
-      body: JSON.stringify({ message: { content: instructions, mentions } }),
-    });
+    await sendMessageToRoom(chatId, instructions, mentions);
 
     // Save to Supabase
     const claimId = (claimData.claim_id as string) || `CLM-${Date.now()}`;

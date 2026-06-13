@@ -1,0 +1,29 @@
+{
+  "build": {
+    "env": {
+      "BAND_API_URL": "https://app.band.ai",
+      "BAND_AGENT_API_KEY": "@band_agent_api_key",
+      "CLAIM_REVIEWER_ID": "@claim_reviewer_id",
+      "INVESTIGATOR_ID": "@investigator_id",
+      "ADJUSTER_ID": "@adjuster_id",
+      "GATEWAY_ID": "@gateway_id",
+      "RESOLVER_ID": "@resolver_id"
+    }
+  },
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,DELETE,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "X-API-Key, Content-Type, Authorization" }
+      ]
+    }
+  ]
+}

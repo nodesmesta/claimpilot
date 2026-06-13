@@ -30,7 +30,7 @@ export default function LoginPage() {
 
       {/* Glass card */}
       <div className="relative z-10 w-full max-w-md mx-4">
-        <div className="backdrop-blur-xl bg-white/60 border border-white/80 rounded-3xl p-8 shadow-xl shadow-black/5">
+        <div className="backdrop-blur-xl bg-gradient-to-br from-blue-50/80 via-white/70 to-purple-50/80 border border-blue-100/60 rounded-3xl p-8 shadow-xl shadow-blue-500/5">
           {/* Logo */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg shadow-blue-500/20 mb-5">

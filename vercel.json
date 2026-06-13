@@ -1,15 +1,4 @@
 {
-  "build": {
-    "env": {
-      "BAND_API_URL": "https://app.band.ai",
-      "BAND_AGENT_API_KEY": "@band_agent_api_key",
-      "CLAIM_REVIEWER_ID": "@claim_reviewer_id",
-      "INVESTIGATOR_ID": "@investigator_id",
-      "ADJUSTER_ID": "@adjuster_id",
-      "GATEWAY_ID": "@gateway_id",
-      "RESOLVER_ID": "@resolver_id"
-    }
-  },
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 60,

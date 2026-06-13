@@ -107,14 +107,14 @@ createPDF("claim_high_risk.pdf", "Insurance Claim — High Risk", (doc) => {
 
   section("Claim Details");
   row("Claim ID:", "CLM-2026-1003");
-  row("Policyholder:", "Robert Chen");
-  row("Policy:", "POL-2026-5523 (Comprehensive Auto)");
+  row("Policyholder:", "James Mitchell");
+  row("Policy:", "POL-2026-8847 (Comprehensive Auto)");
   row("Incident Date:", "2026-05-20");
   row("Filing Date:", "2026-06-05");
   row("Claim Amount:", "$47,500");
 
   section("Incident Description");
-  doc.fontSize(10).fillColor("#374151").text("Policyholder reports vehicle was stolen from residential driveway overnight. Vehicle is a 2024 BMW M4 Competition. Claims total loss. Vehicle was recovered 3 days later, severely damaged (fire). Policyholder recently increased coverage limits 2 weeks before incident.");
+  doc.fontSize(10).fillColor("#374151").text("Policyholder reports vehicle was stolen from residential driveway overnight. Vehicle is a 2023 Toyota Camry XSE. Claims total loss. Vehicle was recovered 3 days later, severely damaged (fire). Policyholder recently increased coverage limits 2 weeks before incident.");
 
   section("Evidence");
   row("Photos Submitted:", "2 (post-recovery only)");
@@ -144,14 +144,14 @@ createPDF("claim_suspicious.pdf", "Insurance Claim — Suspicious", (doc) => {
 
   section("Claim Details");
   row("Claim ID:", "CLM-2026-1005");
-  row("Policyholder:", "Diana Vasquez");
-  row("Policy:", "POL-2026-3312 (Basic Auto)");
+  row("Policyholder:", "James Mitchell");
+  row("Policy:", "POL-2026-8847 (Comprehensive Auto)");
   row("Incident Date:", "2026-06-08");
   row("Filing Date:", "2026-06-10");
   row("Claim Amount:", "$18,500");
 
   section("Incident Description");
-  doc.fontSize(10).fillColor("#374151").text("Policyholder reports a hit-and-run collision at an intersection. Claims other vehicle ran a red light and fled the scene. Significant front-end damage to insured vehicle. No dashcam footage. Policyholder was the only occupant. Happened at 11:45 PM on a weeknight.");
+  doc.fontSize(10).fillColor("#374151").text("Policyholder reports a hit-and-run collision at an intersection. Claims other vehicle ran a red light and fled the scene. Significant front-end damage to insured 2023 Toyota Camry XSE. No dashcam footage. Policyholder was the only occupant. Happened at 11:45 PM on a weeknight.");
 
   section("Evidence");
   row("Photos Submitted:", "4 (damage photos, next-day)");

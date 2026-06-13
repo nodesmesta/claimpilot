@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { createClient } from "@/app/lib/supabase-browser";
 import type { UserProfile, SubscriptionStatus } from "@/app/lib/types";
+import AIChatPanel from "@/app/components/AIChatPanel";
 
 export default function DashboardLayout({
   children,
@@ -154,6 +155,11 @@ export default function DashboardLayout({
 
       {/* Main content */}
       <main className="md:ml-64 min-h-screen bg-gradient-to-br from-white via-white to-blue-50/30">
+        {/* Navbar */}
+        <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-zinc-200 px-4 md:px-8 py-3 flex items-center justify-between">
+          <h1 className="text-lg font-semibold text-zinc-900">ClaimPilot</h1>
+          <AIChatPanel />
+        </div>
         <div className="p-4 md:p-8">
           {children}
         </div>

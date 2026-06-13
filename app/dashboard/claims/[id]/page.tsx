@@ -162,6 +162,15 @@ export default function LiveInvestigationPage() {
     return () => clearInterval(interval);
   }, [fetchMessages, resolved]);
 
+  // Periodic resolve check for retry-on-failure (every 30s if not resolved)
+  useEffect(() => {
+    if (resolved) return;
+    const retryInterval = setInterval(() => {
+      fetch(`/api/claims/${chatId}/resolve`, { method: "POST" }).catch(() => null);
+    }, 30000);
+    return () => clearInterval(retryInterval);
+  }, [chatId, resolved]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);

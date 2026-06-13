@@ -257,27 +257,21 @@ interface Resolution {
 }
 
 const MAX_RETRIES = 5;
-// Backoff intervals: 30s, 1min, 2min, 5min, 10min
 const RETRY_BACKOFF_MS = [30_000, 60_000, 120_000, 300_000, 600_000];
 
 /**
- * Check if any message delivery failed. If so, re-send to the failed agent
- * with exponential backoff (tracked via retry_count in DB).
- * Works for any agent in the chain: Gateway→Reviewer, Reviewer→Investigator, etc.
+ * Detect stalled agents and retry. Handles two cases:
+ * 1. delivery_status = "failed" → agent never received the message
+ * 2. Agent was mentioned but never responded → remind them
+ * 
+ * Gateway can see who was mentioned and who responded. If an agent
+ * was mentioned but hasn't sent a visible message, we remind them.
  */
 async function retryFailedDelivery(chatId: string, rawMessages: any[]): Promise<string | null> {
-  // Find messages with failed delivery (from any sender, not just Gateway)
-  const failedMsgs = rawMessages.filter((m: any) => {
-    const statuses = m.metadata?.delivery_status || {};
-    return Object.values(statuses).some((ds: any) => ds.status === "failed");
-  });
-
-  if (failedMsgs.length === 0) return null;
-
   // Get claim retry state
   const { data: claim } = await supabase
     .from("claims")
-    .select("retry_count, last_retry_at")
+    .select("retry_count, last_retry_at, created_at")
     .eq("room_id", chatId)
     .single();
 
@@ -285,33 +279,66 @@ async function retryFailedDelivery(chatId: string, rawMessages: any[]): Promise<
 
   const retryCount = claim.retry_count || 0;
   if (retryCount >= MAX_RETRIES) {
-    await supabase.from("claims").update({ status: "denied", resolution_reasoning: "Agent delivery failed after max retries" }).eq("room_id", chatId);
+    await supabase.from("claims").update({ status: "denied", resolution_reasoning: "Agent failed to respond after max retries" }).eq("room_id", chatId);
     return "Max retries exceeded — claim marked as failed";
   }
 
   // Check backoff
   const backoffMs = RETRY_BACKOFF_MS[retryCount] || 600_000;
   const lastRetry = claim.last_retry_at ? new Date(claim.last_retry_at).getTime() : 0;
-  if (Date.now() - lastRetry < backoffMs) {
-    return `Waiting for backoff (retry ${retryCount + 1}/${MAX_RETRIES}, next in ${Math.ceil((backoffMs - (Date.now() - lastRetry)) / 1000)}s)`;
+  const timeSinceLastAction = Date.now() - (lastRetry || new Date(claim.created_at).getTime());
+  if (timeSinceLastAction < backoffMs) {
+    return `Waiting for backoff (retry ${retryCount + 1}/${MAX_RETRIES})`;
   }
 
-  // Find the most recent failed delivery and which agent failed
-  const lastFailed = failedMsgs[failedMsgs.length - 1];
-  const failedEntry = Object.entries(lastFailed.metadata?.delivery_status || {})
-    .find(([, ds]: [string, any]) => ds.status === "failed");
+  // Case 1: Explicit delivery failure
+  const failedMsg = rawMessages.find((m: any) => {
+    const statuses = m.metadata?.delivery_status || {};
+    return Object.values(statuses).some((ds: any) => ds.status === "failed");
+  });
 
-  if (!failedEntry) return null;
-  const [failedAgentId] = failedEntry;
+  if (failedMsg) {
+    const failedAgentId = Object.entries(failedMsg.metadata?.delivery_status || {})
+      .find(([, ds]: [string, any]) => ds.status === "failed")?.[0];
+    if (failedAgentId) {
+      return await sendRetry(chatId, failedAgentId, retryCount, "delivery failed");
+    }
+  }
 
+  // Case 2: Agent mentioned but never responded
+  // Find all agents that were mentioned in messages
+  const mentionedAgents = new Set<string>();
+  const respondedAgents = new Set<string>();
+
+  for (const msg of rawMessages) {
+    // Collect who was mentioned
+    const mentions: { id: string }[] = msg.metadata?.mentions || [];
+    for (const m of mentions) {
+      if (m.id !== process.env.GATEWAY_ID) mentionedAgents.add(m.id);
+    }
+    // Collect who responded (non-Gateway senders)
+    if (msg.sender_name !== "Gateway" && msg.message_type === "text") {
+      respondedAgents.add(msg.sender_id);
+    }
+  }
+
+  // Find agents that were mentioned but haven't responded
+  const stalledAgent = [...mentionedAgents].find(id => !respondedAgents.has(id));
+  if (stalledAgent) {
+    return await sendRetry(chatId, stalledAgent, retryCount, "no response");
+  }
+
+  return null;
+}
+
+async function sendRetry(chatId: string, agentId: string, retryCount: number, reason: string): Promise<string> {
   try {
-    // Re-mention the failed agent to trigger Band to re-deliver
     await bandFetch(`/chats/${chatId}/messages`, {
       method: "POST",
       body: JSON.stringify({
         message: {
-          content: `@nodesemesta/gateway Please retry processing. Review the conversation above and continue the investigation.`,
-          mentions: [{ id: failedAgentId }],
+          content: `@nodesemesta/gateway Reminder: please review the conversation above and provide your analysis/decision now.`,
+          mentions: [{ id: agentId }],
         },
       }),
     });
@@ -321,7 +348,7 @@ async function retryFailedDelivery(chatId: string, rawMessages: any[]): Promise<
       last_retry_at: new Date().toISOString(),
     }).eq("room_id", chatId);
 
-    return `Retry ${retryCount + 1}/${MAX_RETRIES} sent to failed agent`;
+    return `Retry ${retryCount + 1}/${MAX_RETRIES} sent (reason: ${reason})`;
   } catch (err: any) {
     return `Retry failed: ${err.message}`;
   }

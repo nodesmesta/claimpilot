@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 import { supabase } from "@/app/lib/supabase";
 
 const BAND_API_URL = process.env.BAND_API_URL || "https://app.band.ai";
 const BAND_AGENT_API_KEY = process.env.BAND_AGENT_API_KEY!;
 const CLAIM_REVIEWER_ID = process.env.CLAIM_REVIEWER_ID!;
+
+const FREE_PLAN_LIMIT = 10;
 
 async function bandFetch(path: string, options: RequestInit = {}) {
   const res = await fetch(`${BAND_API_URL}/api/v1/agent${path}`, {
@@ -21,11 +24,34 @@ async function bandFetch(path: string, options: RequestInit = {}) {
   return res.json();
 }
 
-export async function GET() {
+async function getUserFromRequest(req: NextRequest) {
+  const authClient = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll() {},
+      },
+    }
+  );
+  const { data: { user } } = await authClient.auth.getUser();
+  return user;
+}
+
+export async function GET(req: NextRequest) {
   try {
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { data, error } = await supabase
       .from("claims")
       .select("*")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -38,6 +64,34 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check plan limit
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("subscription_status")
+      .eq("id", user.id)
+      .single();
+
+    const plan = profile?.subscription_status || "free";
+
+    if (plan === "free") {
+      const { count } = await supabase
+        .from("claims")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+      if ((count || 0) >= FREE_PLAN_LIMIT) {
+        return NextResponse.json(
+          { error: `Free plan limited to ${FREE_PLAN_LIMIT} claims. Upgrade to continue.` },
+          { status: 403 }
+        );
+      }
+    }
+
     const claimData = await req.json();
 
     // 1. Create chat room on Band
@@ -64,9 +118,10 @@ export async function POST(req: NextRequest) {
       }),
     });
 
-    // 4. Save to Supabase
+    // 4. Save to Supabase with user_id
     const claimId = claimData.claim_id || `CLM-${Date.now()}`;
     const { error: dbError } = await supabase.from("claims").insert({
+      user_id: user.id,
       claim_id: claimId,
       room_id: chatId,
       policyholder: claimData.policyholder,
@@ -83,7 +138,6 @@ export async function POST(req: NextRequest) {
       police_report: claimData.police_report || false,
       medical_claim: claimData.medical_claim || false,
       status: "investigating",
-      risk_level: null,
     });
 
     if (dbError) console.error("Supabase insert error:", dbError);

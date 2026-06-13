@@ -53,6 +53,8 @@ export default function LiveInvestigationPage() {
           new Date(a.inserted_at) > new Date(b.inserted_at) ? a : b
         );
         sinceRef.current = latest.inserted_at;
+        // Try to resolve claim status from messages
+        fetch(`/api/claims/${chatId}/resolve`, { method: "POST" }).catch(() => {});
       }
     } catch {
       // silently retry next poll

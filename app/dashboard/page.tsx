@@ -14,6 +14,7 @@ interface Claim {
   status: string;
   created_at: string;
   incident_type: string;
+  verdict: string | null;
 }
 
 export default function DashboardPage() {
@@ -27,15 +28,16 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const FREE_LIMIT = 10;
   const total = claims.length;
   const investigating = claims.filter((c) => c.status === "investigating").length;
-  const approved = claims.filter((c) => c.status === "approved").length;
+  const resolved = claims.filter((c) => c.status === "approved" || c.status === "partial_approved" || c.status === "denied").length;
   const highRisk = claims.filter((c) => c.risk_level === "HIGH").length;
 
   const stats = [
-    { title: "Total Claims", value: total, icon: FileText, color: "blue" },
+    { title: "Total Claims", value: `${total}/${FREE_LIMIT}`, icon: FileText, color: "blue" },
     { title: "Investigating", value: investigating, icon: Clock, color: "yellow" },
-    { title: "Approved", value: approved, icon: CheckCircle, color: "green" },
+    { title: "Resolved", value: resolved, icon: CheckCircle, color: "green" },
     { title: "High Risk", value: highRisk, icon: AlertTriangle, color: "red" },
   ];
 
@@ -61,6 +63,7 @@ export default function DashboardPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "approved": return "text-green-600";
+      case "partial_approved": return "text-amber-600";
       case "denied": return "text-red-600";
       case "investigating": return "text-yellow-600";
       default: return "text-zinc-500";

@@ -47,6 +47,7 @@ export default function ClaimsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "approved": return "text-green-600";
+      case "partial_approved": return "text-amber-600";
       case "denied": return "text-red-600";
       case "investigating": return "text-yellow-600";
       default: return "text-zinc-500";

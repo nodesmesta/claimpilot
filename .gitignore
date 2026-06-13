@@ -15,12 +15,16 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Internal dev notes
 AGENTS.md
 CLAUDE.md
-PLATFORM_AGENTS.md
-knowledge/*.md
+
+# Kiro
 .kiro/
+
+# Vercel
 .vercel
 
-# Supabase
-supabase/
+# Supabase local
+supabase/.temp/

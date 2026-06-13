@@ -1,51 +1,64 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bot, Clock, Users, CheckCircle, Wifi, WifiOff } from "lucide-react";
+import { Bot, Users, Clock, Wifi, Search, Scale } from "lucide-react";
+
+interface ClaimStats {
+  total: number;
+  investigating: number;
+  resolved: number;
+  avgResolutionMinutes: number | null;
+}
 
 const agents = [
-  { name: "Claim Reviewer", framework: "LangGraph", model: "GPT-4o (AI/ML API)", role: "Triage & recruitment", status: "online", uptime: "5h 23m", color: "blue" },
-  { name: "Fraud Investigator", framework: "CrewAI", model: "GPT-4o (AI/ML API)", role: "Fraud pattern analysis", status: "online", uptime: "4h 15m", color: "red" },
-  { name: "Senior Adjuster", framework: "Pydantic AI", model: "GPT-4o (AI/ML API)", role: "Final decision authority", status: "online", uptime: "3h 48m", color: "green" },
+  { name: "Claim Reviewer", handle: "@nodesemesta/reviewer", role: "Triage & risk classification", color: "blue", icon: Users, desc: "Always in room. Classifies risk, auto-approves LOW claims, recruits specialists." },
+  { name: "Fraud Investigator", handle: "@nodesemesta/investigator", role: "Fraud pattern analysis", color: "red", icon: Search, desc: "Recruited on-demand for MEDIUM/HIGH risk. Analyzes patterns, clarification loops." },
+  { name: "Senior Adjuster", handle: "@nodesemesta/adjuster", role: "Final decision authority", color: "green", icon: Scale, desc: "Recruited for suspicious cases. Issues APPROVED/PARTIAL/DENIED with settlement." },
 ];
 
-const agentStats = { claimsPerHour: 18, avgResponseTime: "2.3s", errorRate: "0.8%" };
-
-const colorMap: Record<string, { iconBg: string; iconText: string; border: string; healthBar: string }> = {
-  blue: { iconBg: "bg-blue-100", iconText: "text-blue-600", border: "hover:border-blue-300", healthBar: "bg-blue-500" },
-  red: { iconBg: "bg-red-100", iconText: "text-red-600", border: "hover:border-red-300", healthBar: "bg-red-500" },
-  green: { iconBg: "bg-green-100", iconText: "text-green-600", border: "hover:border-green-300", healthBar: "bg-green-500" },
-};
-
-const IconFor = ({ color }: { color: string }) => {
-  const cls = `w-6 h-6 ${colorMap[color]?.iconText || "text-zinc-600"}`;
-  if (color === "blue") return <Users className={cls} />;
-  if (color === "red") return <Clock className={cls} />;
-  return <Bot className={cls} />;
+const colorMap: Record<string, { iconBg: string; iconText: string; border: string }> = {
+  blue: { iconBg: "bg-blue-100", iconText: "text-blue-600", border: "hover:border-blue-300" },
+  red: { iconBg: "bg-red-100", iconText: "text-red-600", border: "hover:border-red-300" },
+  green: { iconBg: "bg-green-100", iconText: "text-green-600", border: "hover:border-green-300" },
 };
 
 export default function AgentsPage() {
-  const [lastChecked] = useState("Just now");
-  const [totalClaims, setTotalClaims] = useState(0);
+  const [stats, setStats] = useState<ClaimStats>({ total: 0, investigating: 0, resolved: 0, avgResolutionMinutes: null });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/claims")
       .then((r) => r.json())
-      .then((json) => setTotalClaims(json.data?.length || 0))
-      .catch(() => {});
+      .then((json) => {
+        const claims = json.data || [];
+        const resolved = claims.filter((c: { resolved_at: string | null }) => c.resolved_at);
+        let avgMin: number | null = null;
+        if (resolved.length > 0) {
+          const totalMs = resolved.reduce((sum: number, c: { created_at: string; resolved_at: string }) => {
+            return sum + (new Date(c.resolved_at).getTime() - new Date(c.created_at).getTime());
+          }, 0);
+          avgMin = Math.round(totalMs / resolved.length / 60000);
+        }
+        setStats({
+          total: claims.length,
+          investigating: claims.filter((c: { status: string }) => c.status === "investigating").length,
+          resolved: resolved.length,
+          avgResolutionMinutes: avgMin,
+        });
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   return (
     <div className="space-y-8">
-      {/* Status Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Agent Status</h1>
-          <p className="text-zinc-500 mt-1">Monitor all AI agents in real-time</p>
+          <p className="text-zinc-500 mt-1">Platform agents running on Band.ai</p>
         </div>
         <span className="px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-sm font-medium border border-green-200 flex items-center gap-2">
-          <span className="w-2 h-2 bg-green-500 rounded-full" />
-          All systems operational
+          <Wifi className="w-3.5 h-3.5" /> Band Platform Connected
         </span>
       </div>
 
@@ -55,86 +68,80 @@ export default function AgentsPage() {
           const c = colorMap[agent.color];
           return (
             <div key={agent.name} className={`p-6 rounded-2xl bg-white/60 backdrop-blur-sm border border-zinc-200 ${c.border} hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-300`}>
-              <div className="flex items-center gap-3 mb-6">
+              <div className="flex items-center gap-3 mb-4">
                 <div className={`w-12 h-12 ${c.iconBg} rounded-xl flex items-center justify-center`}>
-                  <IconFor color={agent.color} />
+                  <agent.icon className={`w-6 h-6 ${c.iconText}`} />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-zinc-900">{agent.name}</h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {agent.status === "online" ? <Wifi className="w-3.5 h-3.5 text-green-500" /> : <WifiOff className="w-3.5 h-3.5 text-red-500" />}
-                    <span className={`text-xs font-medium ${agent.status === "online" ? "text-green-600" : "text-red-600"}`}>{agent.status.toUpperCase()}</span>
-                  </div>
+                  <p className="text-xs text-zinc-400 font-mono">{agent.handle}</p>
                 </div>
               </div>
-              <div className="space-y-3 text-sm">
-                <div><span className="text-zinc-500">Framework</span><p className="font-medium text-zinc-900">{agent.framework}</p></div>
-                <div><span className="text-zinc-500">Model</span><p className="font-medium text-zinc-900">{agent.model}</p></div>
-                <div><span className="text-zinc-500">Role</span><p className="font-medium text-zinc-900">{agent.role}</p></div>
-                <div><span className="text-zinc-500">Uptime</span><p className="font-medium text-zinc-900">{agent.uptime}</p></div>
-              </div>
-              <div className="mt-6 pt-4 border-t border-zinc-100 flex items-center justify-between text-sm">
-                <span className="text-zinc-500">Health</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-24 bg-zinc-100 rounded-full h-2">
-                    <div className={`h-full rounded-full ${c.healthBar}`} style={{ width: agent.status === "online" ? "95%" : "0%" }} />
-                  </div>
-                  <span className="font-medium text-zinc-900">{agent.status === "online" ? "95%" : "0%"}</span>
-                </div>
+              <p className="text-sm text-zinc-600 mb-4">{agent.desc}</p>
+              <div className="pt-4 border-t border-zinc-100 space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-zinc-500">Role</span><span className="font-medium text-zinc-900">{agent.role}</span></div>
+                <div className="flex justify-between"><span className="text-zinc-500">Runtime</span><span className="font-medium text-zinc-900">Band Platform</span></div>
+                <div className="flex justify-between"><span className="text-zinc-500">Model</span><span className="font-medium text-zinc-900">GPT-4o</span></div>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Overall Stats */}
+      {/* Real Stats from DB */}
       <div className="rounded-2xl bg-white/60 backdrop-blur-sm border border-zinc-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-200 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-zinc-900">System Performance</h2>
-          <span className="text-zinc-500 text-sm">Updated {lastChecked}</span>
+        <div className="px-6 py-4 border-b border-zinc-200">
+          <h2 className="text-xl font-semibold text-zinc-900">Investigation Metrics</h2>
+          <p className="text-sm text-zinc-500 mt-0.5">Real data from your claims</p>
         </div>
         <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: "Total Claims Investigated", value: totalClaims },
-            { label: "Claims Per Hour", value: agentStats.claimsPerHour },
-            { label: "Avg Response Time", value: agentStats.avgResponseTime },
-            { label: "Error Rate", value: agentStats.errorRate },
-          ].map((s) => (
-            <div key={s.label} className="bg-zinc-50 rounded-xl p-5">
-              <p className="text-sm text-zinc-500 mb-1">{s.label}</p>
-              <p className="text-2xl font-bold text-zinc-900">{s.value}</p>
+          {loading ? (
+            <div className="col-span-4 text-center py-6 text-zinc-500">
+              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              Loading metrics...
             </div>
-          ))}
+          ) : (
+            <>
+              <div className="bg-zinc-50 rounded-xl p-5">
+                <p className="text-sm text-zinc-500 mb-1">Total Claims</p>
+                <p className="text-2xl font-bold text-zinc-900">{stats.total}</p>
+              </div>
+              <div className="bg-zinc-50 rounded-xl p-5">
+                <p className="text-sm text-zinc-500 mb-1">Investigating</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.investigating}</p>
+              </div>
+              <div className="bg-zinc-50 rounded-xl p-5">
+                <p className="text-sm text-zinc-500 mb-1">Resolved</p>
+                <p className="text-2xl font-bold text-green-600">{stats.resolved}</p>
+              </div>
+              <div className="bg-zinc-50 rounded-xl p-5">
+                <p className="text-sm text-zinc-500 mb-1">Avg Resolution</p>
+                <p className="text-2xl font-bold text-zinc-900">
+                  {stats.avgResolutionMinutes !== null ? `${stats.avgResolutionMinutes}m` : "—"}
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Recent Activity */}
+      {/* How it works */}
       <div className="rounded-2xl bg-white/60 backdrop-blur-sm border border-zinc-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-200">
-          <h2 className="text-xl font-semibold text-zinc-900">Recent Agent Activity</h2>
+          <h2 className="text-xl font-semibold text-zinc-900">Agent Orchestration Flow</h2>
         </div>
-        <div className="divide-y divide-zinc-100">
-          {[
-            { icon: Users, color: "blue", text: "Claim Reviewer recruited Fraud Investigator", sub: "Claim CLM-2026-4521", time: "10:03 AM" },
-            { icon: Clock, color: "red", text: "Fraud Investigator requested clarification", sub: "Certification question", time: "10:05 AM" },
-            { icon: Bot, color: "green", text: "Senior Adjuster joined investigation", sub: "Final decision phase", time: "10:09 AM" },
-            { icon: CheckCircle, color: "green", text: "Senior Adjuster completed review", sub: "PARTIAL_APPROVED decision", time: "10:12 AM" },
-          ].map((item, i) => (
-            <div key={i} className="px-6 py-4 hover:bg-zinc-50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 ${colorMap[item.color]?.iconBg || "bg-zinc-100"} rounded-full flex items-center justify-center`}>
-                    <item.icon className={`w-4 h-4 ${colorMap[item.color]?.iconText || "text-zinc-600"}`} />
-                  </div>
-                  <div>
-                    <p className="font-medium text-zinc-900">{item.text}</p>
-                    <p className="text-sm text-zinc-500">{item.sub}</p>
-                  </div>
-                </div>
-                <span className="text-sm text-zinc-400">{item.time}</span>
-              </div>
-            </div>
-          ))}
+        <div className="p-6">
+          <div className="flex items-center gap-3 text-sm text-zinc-600 flex-wrap">
+            <span className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 font-medium">Claim Submitted</span>
+            <span className="text-zinc-400">→</span>
+            <span className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 font-medium">Reviewer Triage</span>
+            <span className="text-zinc-400">→</span>
+            <span className="px-3 py-1.5 rounded-lg bg-red-50 text-red-700 font-medium">Investigator (if HIGH)</span>
+            <span className="text-zinc-400">→</span>
+            <span className="px-3 py-1.5 rounded-lg bg-green-50 text-green-700 font-medium">Adjuster (if SUSPICIOUS)</span>
+            <span className="text-zinc-400">→</span>
+            <span className="px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-700 font-medium">Resolution</span>
+          </div>
         </div>
       </div>
     </div>

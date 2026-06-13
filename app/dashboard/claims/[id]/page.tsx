@@ -18,10 +18,15 @@ interface Message {
 }
 
 const agentStyle: Record<string, { bg: string; border: string; dot: string }> = {
-  "Claim Reviewer": { bg: "bg-blue-50", border: "border-blue-200", dot: "bg-blue-500" },
-  "Reviewer": { bg: "bg-blue-50", border: "border-blue-200", dot: "bg-blue-500" },
-  "Fraud Investigator": { bg: "bg-red-50", border: "border-red-200", dot: "bg-red-500" },
-  "Senior Adjuster": { bg: "bg-green-50", border: "border-green-200", dot: "bg-green-500" },
+  "Gateway":            { bg: "bg-zinc-50",    border: "border-zinc-200",   dot: "bg-zinc-500" },
+  "Reviewer":           { bg: "bg-blue-50",    border: "border-blue-200",   dot: "bg-blue-500" },
+  "Claim Reviewer":     { bg: "bg-blue-50",    border: "border-blue-200",   dot: "bg-blue-500" },
+  "Investigator":       { bg: "bg-amber-50",   border: "border-amber-200",  dot: "bg-amber-500" },
+  "Fraud Investigator": { bg: "bg-amber-50",   border: "border-amber-200",  dot: "bg-amber-500" },
+  "Adjuster":           { bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500" },
+  "Senior Adjuster":    { bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500" },
+  "resolver":           { bg: "bg-purple-50",  border: "border-purple-200", dot: "bg-purple-500" },
+  "Resolver":           { bg: "bg-purple-50",  border: "border-purple-200", dot: "bg-purple-500" },
 };
 
 function getStyle(name: string) {

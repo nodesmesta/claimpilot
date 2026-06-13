@@ -97,6 +97,7 @@ export default function AssetsPage() {
                   <th className="px-6 py-4 font-medium">Vehicle</th>
                   <th className="px-6 py-4 font-medium">Value</th>
                   <th className="px-6 py-4 font-medium">Payment</th>
+                  <th className="px-6 py-4 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
@@ -108,6 +109,9 @@ export default function AssetsPage() {
                     <td className="px-6 py-4 text-zinc-600 text-sm">{a.vehicle_description}</td>
                     <td className="px-6 py-4 font-semibold text-zinc-900">${a.estimated_value?.toLocaleString()}</td>
                     <td className="px-6 py-4 text-zinc-500 text-sm">{a.payment_method}</td>
+                    <td className="px-6 py-4">
+                      <button onClick={async () => { await fetch(`/api/assets?id=${a.id}`, { method: "DELETE" }); fetchAssets(); }} className="text-red-500 hover:text-red-700 text-sm">Delete</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

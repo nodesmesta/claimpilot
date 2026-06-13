@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { supabase } from "@/app/lib/supabase";
-import { PDFParse } from "pdf-parse";
 
 async function getUserFromRequest(req: NextRequest) {
   const authClient = createServerClient(
@@ -25,9 +24,8 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const parser = new PDFParse({ data: buffer });
-    const result = await parser.getText();
-    const text = result.text;
+    const pdfParse = (await import("pdf-parse")).default;
+    const { text } = await pdfParse(buffer);
 
     // Parse structured data from PDF text
     const data = parseAssetPDF(text);

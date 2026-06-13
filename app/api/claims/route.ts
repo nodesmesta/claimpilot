@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { supabase } from "@/app/lib/supabase";
-import { PDFParse } from "pdf-parse";
 
 const BAND_API_URL = process.env.BAND_API_URL || "https://app.band.ai";
 const BAND_AGENT_API_KEY = process.env.BAND_AGENT_API_KEY!;
@@ -67,9 +66,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "PDF file required" }, { status: 400 });
       }
       const buffer = Buffer.from(await file.arrayBuffer());
-      const parser = new PDFParse({ data: buffer });
-      const result = await parser.getText();
-      const text = result.text;
+      const pdfParse = (await import("pdf-parse")).default;
+      const { text } = await pdfParse(buffer);
       claimData = parseClaimPDF(text);
     } else {
       // JSON body (backward-compatible)

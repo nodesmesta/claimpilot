@@ -261,11 +261,12 @@ const MAX_RETRIES = 5;
 const RETRY_BACKOFF_MS = [30_000, 60_000, 120_000, 300_000, 600_000];
 
 /**
- * Check if the latest message delivery failed. If so, re-send the message
+ * Check if any message delivery failed. If so, re-send to the failed agent
  * with exponential backoff (tracked via retry_count in DB).
+ * Works for any agent in the chain: Gateway→Reviewer, Reviewer→Investigator, etc.
  */
 async function retryFailedDelivery(chatId: string, rawMessages: any[]): Promise<string | null> {
-  // Find messages with failed delivery
+  // Find messages with failed delivery (from any sender, not just Gateway)
   const failedMsgs = rawMessages.filter((m: any) => {
     const statuses = m.metadata?.delivery_status || {};
     return Object.values(statuses).some((ds: any) => ds.status === "failed");
@@ -284,44 +285,43 @@ async function retryFailedDelivery(chatId: string, rawMessages: any[]): Promise<
 
   const retryCount = claim.retry_count || 0;
   if (retryCount >= MAX_RETRIES) {
-    // Max retries exceeded — mark claim as error
     await supabase.from("claims").update({ status: "denied", resolution_reasoning: "Agent delivery failed after max retries" }).eq("room_id", chatId);
     return "Max retries exceeded — claim marked as failed";
   }
 
-  // Check backoff: enough time since last retry?
+  // Check backoff
   const backoffMs = RETRY_BACKOFF_MS[retryCount] || 600_000;
   const lastRetry = claim.last_retry_at ? new Date(claim.last_retry_at).getTime() : 0;
   if (Date.now() - lastRetry < backoffMs) {
     return `Waiting for backoff (retry ${retryCount + 1}/${MAX_RETRIES}, next in ${Math.ceil((backoffMs - (Date.now() - lastRetry)) / 1000)}s)`;
   }
 
-  // Find which agent failed and re-send
+  // Find the most recent failed delivery and which agent failed
   const lastFailed = failedMsgs[failedMsgs.length - 1];
-  const failedAgentId = Object.entries(lastFailed.metadata?.delivery_status || {})
-    .find(([, ds]: [string, any]) => ds.status === "failed")?.[0];
+  const failedEntry = Object.entries(lastFailed.metadata?.delivery_status || {})
+    .find(([, ds]: [string, any]) => ds.status === "failed");
 
-  if (!failedAgentId) return null;
+  if (!failedEntry) return null;
+  const [failedAgentId] = failedEntry;
 
   try {
-    // Re-send the original message content to trigger Band retry
+    // Re-mention the failed agent to trigger Band to re-deliver
     await bandFetch(`/chats/${chatId}/messages`, {
       method: "POST",
       body: JSON.stringify({
         message: {
-          content: lastFailed.content,
+          content: `@nodesemesta/gateway Please retry processing. Review the conversation above and continue the investigation.`,
           mentions: [{ id: failedAgentId }],
         },
       }),
     });
 
-    // Update retry count
     await supabase.from("claims").update({
       retry_count: retryCount + 1,
       last_retry_at: new Date().toISOString(),
     }).eq("room_id", chatId);
 
-    return `Retry ${retryCount + 1}/${MAX_RETRIES} sent (next backoff: ${RETRY_BACKOFF_MS[retryCount + 1] ? RETRY_BACKOFF_MS[retryCount + 1] / 1000 + 's' : 'max reached'})`;
+    return `Retry ${retryCount + 1}/${MAX_RETRIES} sent to failed agent`;
   } catch (err: any) {
     return `Retry failed: ${err.message}`;
   }

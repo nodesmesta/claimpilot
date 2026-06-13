@@ -1,8 +1,11 @@
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
+
+// Disable worker — not available in serverless
+GlobalWorkerOptions.workerSrc = "";
 
 export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   const data = new Uint8Array(buffer);
-  const doc = await getDocument({ data, useSystemFonts: true }).promise;
+  const doc = await getDocument({ data, useSystemFonts: true, isEvalSupported: false, useWorkerFetch: false }).promise;
   let text = "";
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);

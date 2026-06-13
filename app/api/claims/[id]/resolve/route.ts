@@ -60,7 +60,7 @@ export async function POST(
     // 3. Get claim and check if already resolved
     const { data: claim } = await supabase
       .from("claims")
-      .select("claim_id, policyholder, resolved_at")
+      .select("claim_id, policyholder, resolved_at, user_id")
       .eq("room_id", chatId)
       .single();
 
@@ -91,7 +91,7 @@ export async function POST(
 
     // 5. If final decision AND not already resolved → execute resolution
     if (isFinalDecision && !alreadyResolved) {
-      await executeResolution(chatId, claim.claim_id, claim.policyholder, resolution);
+      await executeResolution(chatId, claim.claim_id, claim.policyholder, claim.user_id, resolution);
     }
 
     return NextResponse.json({ resolved: isFinalDecision, resolution });
@@ -111,10 +111,14 @@ async function executeResolution(
   chatId: string,
   claimId: string,
   policyholder: string,
+  userId: string,
   resolution: Resolution
 ) {
   const decision = resolution.verdict || resolution.status.toUpperCase();
-  const email = deriveEmail(policyholder);
+
+  // Get real user email
+  const { data: profile } = await supabase.from("profiles").select("email").eq("id", userId).single();
+  const email = profile?.email || deriveEmail(policyholder);
 
   // 1. Recruit Resolution Agent and instruct to post confirmation
   if (RESOLVER_ID) {
@@ -196,7 +200,7 @@ async function sendNotification(
       const { Resend } = await import("resend");
       const resend = new Resend(process.env.RESEND_API_KEY);
       const { error } = await resend.emails.send({
-        from: process.env.NOTIFICATION_FROM_EMAIL || "ClaimPilot <noreply@claimpilot.ai>",
+        from: process.env.NOTIFICATION_FROM_EMAIL || "onboarding@resend.dev",
         to: email,
         subject,
         html: body,

@@ -48,27 +48,39 @@ export async function GET(
   try {
     const { id: chatId } = await params;
 
-    let path = `/api/v1/agent/chats/${chatId}/context`;
+    // Fetch both endpoints and merge — /context has messages mentioning us,
+    // /messages has messages sent to the room that we received
+    const [contextData, messagesData] = await Promise.all([
+      bandFetchWithRetry(`/api/v1/agent/chats/${chatId}/context`).catch(() => ({ data: [] })),
+      bandFetchWithRetry(`/api/v1/agent/chats/${chatId}/messages`).catch(() => ({ data: [] })),
+    ]);
 
-    const data = await bandFetchWithRetry(path);
-    
-    // Add fallback for empty responses
-    if (!data.data || !Array.isArray(data.data)) {
-      return NextResponse.json({ 
-        data: [],
-        meta: { fallback: true, timestamp: new Date().toISOString() }
-      });
+    const contextMsgs: any[] = contextData.data || [];
+    const receivedMsgs: any[] = messagesData.data || [];
+
+    // Merge and deduplicate by id
+    const seen = new Set<string>();
+    const all: any[] = [];
+    for (const msg of [...contextMsgs, ...receivedMsgs]) {
+      if (!seen.has(msg.id)) {
+        seen.add(msg.id);
+        all.push(msg);
+      }
     }
 
-    return NextResponse.json(data);
+    // Sort by time
+    all.sort((a, b) => new Date(a.inserted_at).getTime() - new Date(b.inserted_at).getTime());
+
+    return NextResponse.json({
+      data: all,
+      meta: { total_count: all.length, sources: { context: contextMsgs.length, messages: receivedMsgs.length } }
+    });
   } catch (error: any) {
-    console.error(`Error fetching messages for chat ${(await params).id}:`, error.message);
-    
-    // Return empty response instead of error for frontend
+    console.error(`Error fetching messages:`, error.message);
     return NextResponse.json({ 
       data: [],
       error: error.message,
       meta: { error: true, timestamp: new Date().toISOString() }
-    }, { status: 200 }); // Return 200 with error flag instead of 500
+    }, { status: 200 });
   }
 }

@@ -98,7 +98,7 @@ export async function addParticipantToRoom(roomId: string, agentId: string): Pro
 export async function sendMessageToRoom(
   roomId: string, 
   content: string, 
-  mentions: { id: string }[] = []
+  mentions: { id: string }[]
 ): Promise<void> {
   await bandFetch(`/chats/${roomId}/messages`, {
     method: "POST",

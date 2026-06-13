@@ -68,13 +68,14 @@ export async function POST(
           agentMessages.every(m => m.content.includes("will begin") || m.content.includes("received"));
 
         if (ageMs > 30_000 && hasNoSubstantiveResponse) {
-          // Retry: resend instruction
+          // Retry: resend instruction to reviewer
+          const reviewerId = process.env.CLAIM_REVIEWER_ID!;
           await bandFetch(`/chats/${chatId}/messages`, {
             method: "POST",
             body: JSON.stringify({
               message: {
-                content: `[RETRY] Agents, please process this claim now. The investigation has stalled. Review the claim data above and provide your analysis/decision.`,
-                mentions: [],
+                content: `@nodesemesta/reviewer Please process this claim now. The investigation has stalled. Review the claim data above and provide your analysis.`,
+                mentions: [{ id: reviewerId }],
               },
             }),
           });

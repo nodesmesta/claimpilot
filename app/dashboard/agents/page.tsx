@@ -83,7 +83,6 @@ export default function AgentsPage() {
               <div className="pt-4 border-t border-zinc-100 space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-zinc-500">Role</span><span className="font-medium text-zinc-900">{agent.role}</span></div>
                 <div className="flex justify-between"><span className="text-zinc-500">Runtime</span><span className="font-medium text-zinc-900">Band Platform</span></div>
-                <div className="flex justify-between"><span className="text-zinc-500">Model</span><span className="font-medium text-zinc-900">GPT-4o</span></div>
               </div>
             </div>
           );

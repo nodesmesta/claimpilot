@@ -141,10 +141,10 @@ export default function Home() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { name: "Claim Reviewer", role: "Always in room", framework: "LangGraph", icon: Users, color: "blue", features: ["Extract facts & classify risk", "Dynamic agent recruitment", "Answer clarification queries"] },
-              { name: "Fraud Investigator", role: "Recruited on-demand", framework: "CrewAI", icon: Search, color: "red", features: ["Pattern & anomaly analysis", "Cross-reference fraud indicators", "Clarification loop with Reviewer"] },
-              { name: "Senior Adjuster", role: "Recruited on-demand", framework: "Pydantic AI", icon: Scale, color: "green", features: ["Final decision authority", "Settlement calculation", "Compliance & regulatory check"] },
-              { name: "Resolution Agent", role: "Recruited post-decision", framework: "Band Native", icon: CheckCircle, color: "purple", features: ["Email notification delivery", "Payment processing", "Case closure & audit trail"] },
+              { name: "Claim Reviewer", role: "Always in room", framework: "Band Platform", icon: Users, color: "blue", features: ["Extract facts & classify risk", "Dynamic agent recruitment", "Answer clarification queries"] },
+              { name: "Fraud Investigator", role: "Recruited on-demand", framework: "Band Platform", icon: Search, color: "red", features: ["Pattern & anomaly analysis", "Cross-reference fraud indicators", "Clarification loop with Reviewer"] },
+              { name: "Senior Adjuster", role: "Recruited on-demand", framework: "Band Platform", icon: Scale, color: "green", features: ["Final decision authority", "Settlement calculation", "Compliance & regulatory check"] },
+              { name: "Resolution Agent", role: "Recruited post-decision", framework: "Band Platform", icon: CheckCircle, color: "purple", features: ["Email notification delivery", "Payment processing", "Case closure & audit trail"] },
             ].map((agent, i) => (
               <div key={i} className={`scroll-reveal group p-8 rounded-2xl bg-white/70 backdrop-blur-sm border transition-all duration-300 hover:-translate-y-2 ${
                 agent.color === "blue" ? "border-blue-200 hover:border-blue-400 hover:shadow-xl hover:shadow-blue-500/10" :
@@ -185,7 +185,7 @@ export default function Home() {
                     agent.color === "purple" ? "bg-purple-50 text-purple-600" :
                     "bg-green-50 text-green-600"
                   }`}>{agent.framework}</span>
-                  <span className="text-xs px-2 py-1 rounded bg-zinc-100 text-zinc-500">GPT-4o</span>
+                  <span className="text-xs px-2 py-1 rounded bg-zinc-100 text-zinc-500">AI/ML API</span>
                 </div>
               </div>
             ))}

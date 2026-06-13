@@ -7,58 +7,85 @@ Multi-agent system that investigates insurance claims with dynamic recruitment o
 ## How It Works
 
 ```
-User submits claim → Frontend API creates Band room
-→ Reviewer agent triages (LOW/MEDIUM/HIGH)
-→ If HIGH: Reviewer recruits Investigator
-→ Investigator analyzes fraud patterns → verdict
-→ If SUSPICIOUS: Reviewer recruits Adjuster
-→ Adjuster issues final decision
+User submits claim → Frontend creates Band room + adds Reviewer
+→ Reviewer triages (risk_level: LOW/MEDIUM/HIGH)
+  → LOW: Reviewer auto-approves (REVIEWER_REPORT + AUTO_APPROVE)
+  → MEDIUM/HIGH: Reviewer outputs [RECRUIT:investigator]
+    → Backend detects tag → adds Investigator to room
+    → Investigator analyzes fraud → verdict (CLEAN/SUSPICIOUS/LIKELY_FRAUDULENT)
+      → CLEAN: auto-approve
+      → SUSPICIOUS/LIKELY_FRAUDULENT: Investigator outputs [RECRUIT:adjuster]
+        → Backend detects tag → adds Adjuster to room
+        → Adjuster issues final decision (APPROVED/PARTIAL_APPROVED/DENIED)
+→ Backend resolves: email + payment + Resolver confirmation
 ```
 
-All agent logic, tools, and communication run on [Band.ai](https://app.band.ai). The frontend only creates rooms, sends the initial message, and polls for results.
+**Key design:** Agents recruit each other via `[RECRUIT:role]` tags. The backend polls for these tags and dynamically adds participants. No agent is pre-added — only the Reviewer starts in the room.
 
 ## Agent Architecture (Platform Agents)
 
 | Agent | Handle | Role |
 |-------|--------|------|
 | 🚪 **Gateway** | `@nodesemesta/gateway` | API identity — sends claims on behalf of frontend |
-| 📋 **Reviewer** | `@nodesemesta/reviewer` | Triage, classify risk, recruit specialists |
-| 🔍 **Investigator** | `@nodesemesta/investigator` | Fraud pattern analysis, red flag assessment |
+| 📋 **Reviewer** | `@nodesemesta/reviewer` | Triage, classify risk, auto-approve or recruit |
+| 🔍 **Investigator** | `@nodesemesta/investigator` | Fraud pattern analysis, verdict, recruit adjuster |
 | ⚖️ **Adjuster** | `@nodesemesta/adjuster` | Final decision, settlement calculation |
+| ✅ **Resolver** | `@nodesemesta/resolver` | Confirms resolution execution |
 
-Agent prompts and behavior are defined in [PLATFORM_AGENTS.md](./PLATFORM_AGENTS.md).
+Agent prompts and structured output formats are defined in [PLATFORM_AGENTS.md](./PLATFORM_AGENTS.md).
+
+## API Endpoints
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/api/claims` | Submit a new claim (PDF or JSON) |
+| GET | `/api/claims` | List user's claims |
+| GET | `/api/claims/[id]/messages` | Poll Band room messages |
+| POST | `/api/claims/[id]/recruit` | Detect & execute agent recruitment |
+| POST | `/api/claims/[id]/resolve` | Parse agent decisions & finalize |
+| POST | `/api/claims/[id]/notify` | Send email notification |
+| POST | `/api/claims/[id]/payment` | Record payment |
 
 ## Project Structure
 
 ```
 project/
-├── frontend/              # Next.js app
-│   ├── app/
-│   │   ├── api/claims/    # Band API integration
-│   │   ├── dashboard/     # Claims UI
-│   │   └── page.tsx       # Landing page
-│   └── .env.local         # Band API keys & agent IDs
-├── knowledge/             # Domain knowledge (reference)
-│   ├── fraud_patterns.md
-│   ├── policy_rules.md
-│   └── compliance.md
-├── samples/               # Test claim payloads
-├── PLATFORM_AGENTS.md     # Agent prompts & config
+├── app/
+│   ├── api/
+│   │   ├── claims/
+│   │   │   ├── route.ts              # Submit/list claims
+│   │   │   └── [id]/
+│   │   │       ├── messages/route.ts  # Poll room messages
+│   │   │       ├── recruit/route.ts   # Dynamic agent recruitment
+│   │   │       ├── resolve/route.ts   # Parse decisions & finalize
+│   │   │       ├── notify/route.ts    # Email notification
+│   │   │       └── payment/route.ts   # Payment recording
+│   │   ├── chat/route.ts             # AI assistant (Featherless)
+│   │   ├── assets/route.ts           # Policy/asset management
+│   │   └── health/route.ts           # Health check
+│   ├── dashboard/                     # Claims UI
+│   ├── lib/
+│   │   ├── band.ts                   # Band API client
+│   │   ├── env.ts                    # Environment helpers
+│   │   └── supabase.ts              # Supabase client
+│   └── page.tsx                      # Landing page
+├── supabase/migrations/              # DB schema
+├── samples/                          # Test claim PDFs
+├── PLATFORM_AGENTS.md                # Agent prompts & config
 └── README.md
 ```
 
 ## Setup
 
-### 1. Frontend
+### 1. Install & Run
 
 ```bash
-cd frontend
 npm install
-cp .env.local.example .env.local  # fill in Band keys
+cp .env.example .env.local  # fill in keys
 npm run dev
 ```
 
-### 2. Environment Variables (frontend/.env.local)
+### 2. Environment Variables (.env.local)
 
 ```
 BAND_API_URL=https://app.band.ai
@@ -67,35 +94,48 @@ CLAIM_REVIEWER_ID=<uuid>
 INVESTIGATOR_ID=<uuid>
 ADJUSTER_ID=<uuid>
 GATEWAY_ID=<uuid>
+RESOLVER_ID=<uuid>
+
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
-Get these from [app.band.ai/agents](https://app.band.ai/agents).
+Get Band agent IDs from [app.band.ai/agents](https://app.band.ai/agents).
 
-## Testing via cURL
+## Testing
 
 ```bash
-# Submit a high-value claim
+# Submit a claim (PDF)
 curl -X POST http://localhost:3000/api/claims \
-  -H "Content-Type: application/json" \
-  -d @samples/claim_high_value.json
+  -F "file=@samples/claim_high_risk.pdf"
 
-# Poll investigation messages (use room_id from response)
+# Poll messages
 curl http://localhost:3000/api/claims/<room_id>/messages
+
+# Manually trigger recruitment check
+curl -X POST http://localhost:3000/api/claims/<room_id>/recruit
+
+# Manually trigger resolution
+curl -X POST http://localhost:3000/api/claims/<room_id>/resolve
 ```
 
 ## Demo Scenarios
 
-| Sample | Risk | Expected Flow |
-|--------|------|---------------|
-| `claim_low_risk.json` | LOW | Reviewer auto-approves |
-| `claim_suspicious.json` | MEDIUM/HIGH | Reviewer → Investigator |
-| `claim_high_value.json` | HIGH | Reviewer → Investigator → Adjuster |
+| Sample | Expected Flow |
+|--------|---------------|
+| `claim_low_risk.pdf` | Reviewer → AUTO_APPROVE |
+| `claim_suspicious.pdf` | Reviewer → recruits Investigator → verdict |
+| `claim_high_risk.pdf` | Reviewer → Investigator → recruits Adjuster → final decision |
 
 ## Stack
 
-- **Agent Platform**: [Band.ai](https://band.ai) (platform agents, no local runtime)
+- **Agent Platform**: [Band.ai](https://band.ai) — platform agents with structured output
 - **Frontend**: Next.js 15, TailwindCSS, HeroUI
-- **API Pattern**: REST via Band Agent API (`/api/v1/agent/...`)
+- **Database**: Supabase (Postgres + Auth + RLS)
+- **Email**: Resend (optional)
+- **AI Chat**: Featherless AI (DeepSeek-V4-Pro)
 
 ## License
 

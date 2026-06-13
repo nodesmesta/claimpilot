@@ -10,8 +10,6 @@ import {
 } from "@/app/lib/band";
 
 const CLAIM_REVIEWER_ID = process.env.CLAIM_REVIEWER_ID!;
-const INVESTIGATOR_ID = process.env.INVESTIGATOR_ID!;
-const ADJUSTER_ID = process.env.ADJUSTER_ID!;
 const FREE_PLAN_LIMIT = 10;
 
 async function getUserFromRequest(req: NextRequest) {
@@ -100,47 +98,24 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
-    // Create Band room and submit
+    // Create Band room and add only Reviewer — dynamic recruitment handles the rest
     const chatId = await createBandRoom();
-
-    // Pre-triage: determine risk level from claim data
     const riskLevel = triageClaim(claimData);
 
-    // Add participants based on risk level
     try {
       await addParticipantToRoom(chatId, CLAIM_REVIEWER_ID);
-
-      if (riskLevel !== "LOW") {
-        await addParticipantToRoom(chatId, INVESTIGATOR_ID);
-      }
-
-      if (riskLevel === "HIGH") {
-        await addParticipantToRoom(chatId, ADJUSTER_ID);
-      }
     } catch (error) {
-      console.error("Error adding participants:", error);
-      return NextResponse.json({ 
-        error: "Failed to setup agent participants. Please try again." 
-      }, { status: 500 });
+      console.error("Error adding reviewer:", error);
+      return NextResponse.json({ error: "Failed to setup agent. Please try again." }, { status: 500 });
     }
 
-    // Send claim with clear instructions to all participants
+    // Send claim to Reviewer only — Reviewer will recruit others via [RECRUIT:role]
     const claimJson = JSON.stringify(claimData);
     const assetContext = `\n\nRegistered Asset:\n- Policy: ${asset.policy_number} (${asset.policy_type})\n- Policyholder: ${asset.policyholder}\n- Vehicle: ${asset.vehicle_description || "N/A"}\n- Estimated Value: $${(asset.estimated_value || 0).toLocaleString()}\n- Deductible: $${(asset.deductible || 0).toLocaleString()}\n- Payment Method: ${asset.payment_method || "N/A"}`;
-    let instructions: string;
-    if (riskLevel === "LOW") {
-      instructions = `@nodesemesta/reviewer This is a LOW risk claim. Review and auto-approve if appropriate.\n\nClaim data: ${claimJson}${assetContext}`;
-    } else if (riskLevel === "HIGH") {
-      instructions = `@nodesemesta/reviewer @nodesemesta/investigator @nodesemesta/adjuster\n\nHIGH RISK CLAIM — Full investigation required.\n\n1. @nodesemesta/reviewer: Extract facts and classify risk factors.\n2. @nodesemesta/investigator: Analyze fraud patterns and provide verdict (CLEAN/SUSPICIOUS/LIKELY_FRAUDULENT).\n3. @nodesemesta/adjuster: After investigator verdict, issue final decision (APPROVED/PARTIAL_APPROVED/DENIED) with settlement amount.\n\nClaim data: ${claimJson}${assetContext}`;
-    } else {
-      instructions = `@nodesemesta/reviewer @nodesemesta/investigator\n\nMEDIUM RISK CLAIM — Investigation needed.\n\n1. @nodesemesta/reviewer: Extract facts and classify risk factors.\n2. @nodesemesta/investigator: Analyze fraud patterns and provide verdict (CLEAN/SUSPICIOUS/LIKELY_FRAUDULENT). If SUSPICIOUS, recommend adjuster review.\n\nClaim data: ${claimJson}${assetContext}`;
-    }
 
-    const mentions = [{ id: CLAIM_REVIEWER_ID }];
-    if (riskLevel !== "LOW") mentions.push({ id: INVESTIGATOR_ID });
-    if (riskLevel === "HIGH") mentions.push({ id: ADJUSTER_ID });
+    const instructions = `@nodesemesta/reviewer New claim submitted for triage. Review and classify risk. If risk is MEDIUM or HIGH, recruit the investigator using [RECRUIT:investigator].\n\nClaim data: ${claimJson}${assetContext}`;
 
-    await sendMessageToRoom(chatId, instructions, mentions);
+    await sendMessageToRoom(chatId, instructions, [{ id: CLAIM_REVIEWER_ID }]);
 
     // Save to Supabase
     const baseClaimId = (claimData.claim_id as string) || `CLM-${Date.now()}`;
@@ -184,13 +159,14 @@ export async function POST(req: NextRequest) {
 }
 
 function scheduleResolve(appUrl: string, chatId: string) {
-  // Try resolve at 8s, 15s, 30s, 60s after submission
-  const delays = [8000, 15000, 30000, 60000];
-  for (const delay of delays) {
-    setTimeout(() => {
-      fetch(`${appUrl}/api/claims/${chatId}/resolve`, { method: "POST" }).catch(() => {});
-    }, delay);
-  }
+  // On Vercel serverless, setTimeout won't survive after response is sent.
+  // Use a chain of self-calling fetches with delay via edge/external ping.
+  // First immediate poll after a short delay handled by frontend polling.
+  // Fire the first recruit+resolve immediately (5s won't work in serverless).
+  // The frontend dashboard polls /messages and can trigger /recruit + /resolve.
+  // As a best-effort, fire one immediate attempt:
+  fetch(`${appUrl}/api/claims/${chatId}/recruit`, { method: "POST" }).catch(() => {});
+  fetch(`${appUrl}/api/claims/${chatId}/resolve`, { method: "POST" }).catch(() => {});
 }
 
 function parseClaimPDF(text: string): Record<string, unknown> {
@@ -219,7 +195,7 @@ function parseClaimPDF(text: string): Record<string, unknown> {
     photos_submitted: parseInt(get(/Photos Submitted:\s*(\d+)/i) || "0"),
     prior_claims_12mo: parseInt(get(/Prior Claims \(12mo\):\s*(\d+)/i) || get(/Claims \(last 12 months\):\s*(\d+)/i) || "0"),
     police_report: /Police Report:\s*Yes/i.test(text),
-    medical_claim: /Medical Claim:\s*Yes/i.test(text) || /Medical/i.test(get(/medical/i) || ""),
+    medical_claim: /Medical Claim:\s*Yes/i.test(text),
   };
 }
 

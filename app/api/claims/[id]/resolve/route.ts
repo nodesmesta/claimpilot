@@ -286,56 +286,96 @@ function parseResolution(messages: { content: string; sender_name: string; messa
   const textMsgs = messages.filter(m => m.message_type === "text");
 
   let riskLevel: string | null = null;
+  let reviewerSettlement: number | null = null;
+
+  // Parse Reviewer report
   for (const msg of textMsgs) {
-    if (/reviewer/i.test(msg.sender_name)) {
-      const riskMatch = msg.content.match(/(?:risk|classification|level)[:\s]*(LOW|MEDIUM|HIGH)/i);
-      if (riskMatch) riskLevel = riskMatch[1].toUpperCase();
+    if (/reviewer/i.test(msg.sender_name) && msg.content.includes("REVIEWER_REPORT")) {
+      const rl = msg.content.match(/risk_level:\s*(LOW|MEDIUM|HIGH)/i);
+      if (rl) riskLevel = rl[1].toUpperCase();
+      const decision = msg.content.match(/decision:\s*(AUTO_APPROVE|ESCALATE_INVESTIGATION)/i);
+      if (decision && decision[1] === "AUTO_APPROVE") {
+        reviewerSettlement = extractAmount(msg.content);
+      }
+    }
+    // Fallback: old format
+    if (!riskLevel && /reviewer/i.test(msg.sender_name)) {
+      const rl = msg.content.match(/(?:risk|classification|level)[:\s]*(LOW|MEDIUM|HIGH)/i);
+      if (rl) riskLevel = rl[1].toUpperCase();
     }
   }
 
-  // Priority 1: Adjuster Decision Report
+  // Priority 1: Adjuster Decision (structured ADJUSTER_DECISION)
   for (let i = textMsgs.length - 1; i >= 0; i--) {
     const msg = textMsgs[i];
+    if (/adjuster/i.test(msg.sender_name) && msg.content.includes("ADJUSTER_DECISION")) {
+      return parseAdjusterDecision(msg.content, riskLevel);
+    }
+    // Fallback: old format
     if (/adjuster/i.test(msg.sender_name) && msg.content.includes("Decision")) {
       return parseAdjusterDecision(msg.content, riskLevel);
     }
   }
 
-  // Priority 2: Investigator verdict
+  // Priority 2: Investigator verdict (structured INVESTIGATOR_REPORT)
   for (let i = textMsgs.length - 1; i >= 0; i--) {
     const msg = textMsgs[i];
     if (/investigator/i.test(msg.sender_name)) {
-      const verdictMatch = msg.content.match(/(CLEAN|SUSPICIOUS|LIKELY_FRAUDULENT)/i);
-      if (verdictMatch) {
-        const v = verdictMatch[1].toUpperCase();
-        // If LIKELY_FRAUDULENT or SUSPICIOUS, check if Adjuster already decided
-        if (v !== "CLEAN") {
-          // Look for adjuster decision after this
-          for (let j = i + 1; j < textMsgs.length; j++) {
-            if (/adjuster/i.test(textMsgs[j].sender_name) && textMsgs[j].content.includes("Decision")) {
-              return parseAdjusterDecision(textMsgs[j].content, riskLevel);
-            }
-          }
-          return { status: "investigating", riskLevel, verdict: v, settlementAmount: null, fraudScore: null, reasoning: msg.content.slice(0, 500) };
+      let verdict: string | null = null;
+      let fraudScore: number | null = null;
+
+      if (msg.content.includes("INVESTIGATOR_REPORT")) {
+        const vm = msg.content.match(/verdict:\s*(CLEAN|SUSPICIOUS|LIKELY_FRAUDULENT)/i);
+        if (vm) verdict = vm[1].toUpperCase();
+        const fs = msg.content.match(/fraud_score:\s*(\d+)/i);
+        if (fs) fraudScore = parseInt(fs[1]);
+      } else {
+        // Fallback
+        const vm = msg.content.match(/(CLEAN|SUSPICIOUS|LIKELY_FRAUDULENT)/i);
+        if (vm) verdict = vm[1].toUpperCase();
+      }
+
+      if (verdict) {
+        if (verdict === "CLEAN") {
+          return {
+            status: "approved",
+            riskLevel,
+            verdict: "CLEAN",
+            settlementAmount: extractAmount(msg.content) || reviewerSettlement,
+            fraudScore: fraudScore || 1,
+            reasoning: msg.content.slice(0, 500),
+          };
         }
-        return {
-          status: "approved",
-          riskLevel,
-          verdict: "CLEAN",
-          settlementAmount: extractAmount(msg.content),
-          fraudScore: 1,
-          reasoning: msg.content.slice(0, 500),
-        };
+        // SUSPICIOUS or LIKELY_FRAUDULENT — check if adjuster already decided after this
+        for (let j = i + 1; j < textMsgs.length; j++) {
+          if (/adjuster/i.test(textMsgs[j].sender_name) && 
+              (textMsgs[j].content.includes("ADJUSTER_DECISION") || textMsgs[j].content.includes("Decision"))) {
+            return parseAdjusterDecision(textMsgs[j].content, riskLevel);
+          }
+        }
+        // Adjuster hasn't decided yet
+        return { status: "investigating", riskLevel, verdict, settlementAmount: null, fraudScore, reasoning: msg.content.slice(0, 500) };
       }
     }
   }
 
-  // Priority 3: Reviewer auto-approve
+  // Priority 3: Reviewer auto-approve (structured or fallback)
   for (let i = textMsgs.length - 1; i >= 0; i--) {
     const msg = textMsgs[i];
     if (/reviewer/i.test(msg.sender_name)) {
-      const approveMatch = msg.content.match(/\bapprov(e|ed|al)\b/i);
-      if (approveMatch) {
+      // Structured: decision: AUTO_APPROVE
+      if (msg.content.match(/decision:\s*AUTO_APPROVE/i)) {
+        return {
+          status: "approved",
+          riskLevel: riskLevel || "LOW",
+          verdict: "AUTO_APPROVED",
+          settlementAmount: extractAmount(msg.content),
+          fraudScore: 0,
+          reasoning: msg.content.slice(0, 500),
+        };
+      }
+      // Fallback: word "approved" in reviewer message
+      if (msg.content.match(/\bapprov(e|ed|al)\b/i) && !msg.content.match(/ESCALATE/i)) {
         return {
           status: "approved",
           riskLevel: riskLevel || "LOW",
@@ -356,7 +396,9 @@ function parseResolution(messages: { content: string; sender_name: string; messa
 
 function parseAdjusterDecision(content: string, riskLevel: string | null): Resolution {
   let status: Resolution["status"] = "investigating";
-  const decisionMatch = content.match(/Decision[:\s]*(APPROVED|PARTIAL_APPROVED|DENIED)/i);
+
+  // Structured format: decision: APPROVED|PARTIAL_APPROVED|DENIED
+  const decisionMatch = content.match(/decision[:\s]*(APPROVED|PARTIAL_APPROVED|DENIED)/i);
   if (decisionMatch) {
     const d = decisionMatch[1].toUpperCase();
     if (d === "APPROVED") status = "approved";
@@ -364,7 +406,10 @@ function parseAdjusterDecision(content: string, riskLevel: string | null): Resol
     else if (d === "DENIED") status = "denied";
   }
 
-  const fraudMatch = content.match(/Fraud Risk Score[:\s]*(\d+)/i);
+  // fraud_risk_score from structured format
+  const fraudMatch = content.match(/fraud_risk_score[:\s]*(\d+)/i)
+    || content.match(/fraud_score[:\s]*(\d+)/i)
+    || content.match(/Fraud Risk Score[:\s]*(\d+)/i);
   const fraudScore = fraudMatch ? parseInt(fraudMatch[1]) : null;
 
   return {
@@ -378,9 +423,17 @@ function parseAdjusterDecision(content: string, riskLevel: string | null): Resol
 }
 
 function extractAmount(text: string): number | null {
-  const match = text.match(/\$[\s]*([\d,]+(?:\.\d{2})?)/);
-  if (match) return parseFloat(match[1].replace(/,/g, ""));
-  const numMatch = text.match(/Settlement(?:\s+Amount)?[:\s]*\$?([\d,]+(?:\.\d{2})?)/i);
-  if (numMatch) return parseFloat(numMatch[1].replace(/,/g, ""));
+  // Structured format: settlement_amount: 12500 or settlement_amount: $12,500
+  const structured = text.match(/settlement_amount[:\s]*\$?([\d,]+(?:\.\d{2})?)/i);
+  if (structured) return parseFloat(structured[1].replace(/,/g, ""));
+  // Dollar sign format: $12,500
+  const dollar = text.match(/\$[\s]*([\d,]+(?:\.\d{2})?)/);
+  if (dollar) return parseFloat(dollar[1].replace(/,/g, ""));
+  // Settlement Amount: 12500
+  const label = text.match(/Settlement(?:\s+Amount)?[:\s]*\$?([\d,]+(?:\.\d{2})?)/i);
+  if (label) return parseFloat(label[1].replace(/,/g, ""));
+  // claim_amount: 25000
+  const claim = text.match(/claim_amount[:\s]*\$?([\d,]+(?:\.\d{2})?)/i);
+  if (claim) return parseFloat(claim[1].replace(/,/g, ""));
   return null;
 }

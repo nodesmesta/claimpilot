@@ -70,11 +70,10 @@ function MarkdownContent({ content }: { content: string }) {
 
 // Agent ID to name mapping
 const AGENT_NAMES: Record<string, string> = {
-  "36558bfa-2887-4f7d-8bd5-ba64771a5f76": "Reviewer",
-  "d39d2e28-ef86-4aa5-80aa-cbd0251b225e": "Gateway",
-  "a55a1e0d-8ddf-4d08-ac3d-18428c7de10a": "Resolver",
-  "57f4dc81-0bc6-4a4b-8c7a-6c1a67d6a6e7": "Investigator",
-  "c8a12f3e-5d9a-4b1c-9e7f-2a3b4c5d6e7f": "Adjuster",
+  "3ffde2c6-2967-42fd-a930-61ff239d8c18": "Reviewer",
+  "71c8c2c4-7a60-4f03-991e-ed6afb52b186": "Investigator",
+  "2e353c0b-23cc-4a37-ac4a-87b7a53f9c69": "Adjuster",
+  "e6f31f80-3ab9-4a7d-b6f9-4147a6b77b83": "Resolver",
 };
 
 function cleanContent(content: string, senderName: string): string {
@@ -145,7 +144,8 @@ export default function LiveInvestigationPage() {
             (a, b) => new Date(a.inserted_at).getTime() - new Date(b.inserted_at).getTime()
           );
         });
-        // Try to resolve
+        // Check for recruitment needs then try to resolve
+        await fetch(`/api/claims/${chatId}/recruit`, { method: "POST" }).catch(() => null);
         const resolveRes = await fetch(`/api/claims/${chatId}/resolve`, { method: "POST" }).catch(() => null);
         if (resolveRes) {
           const r = await resolveRes.json().catch(() => null);
@@ -160,7 +160,7 @@ export default function LiveInvestigationPage() {
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, resolved ? 10000 : 1000);
+    const interval = setInterval(fetchMessages, resolved ? 10000 : 3000);
     return () => clearInterval(interval);
   }, [fetchMessages, resolved]);
 

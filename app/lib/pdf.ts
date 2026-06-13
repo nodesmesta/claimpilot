@@ -1,7 +1,7 @@
 export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
-  const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const workerPath = require.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `file://${workerPath}`;
+  // pdfjs-dist v3 legacy build works without worker and without canvas
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const pdfjsLib = require("pdfjs-dist/legacy/build/pdf.js");
 
   const data = new Uint8Array(buffer);
   const doc = await pdfjsLib.getDocument({ data }).promise;
@@ -9,9 +9,9 @@ export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const content = await page.getTextContent();
-    const strings = content.items.map((item: { str?: string }) => item.str || "").filter(Boolean);
-    text += strings.join(" ") + "\n";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    text += content.items.map((item: any) => item.str || "").join(" ") + "\n";
   }
-  await doc.destroy();
+  doc.destroy();
   return text;
 }

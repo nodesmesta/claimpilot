@@ -144,9 +144,15 @@ async function executeResolution(
 ) {
   const decision = resolution.verdict || resolution.status.toUpperCase();
 
-  // Get real user email
+  // Get real user email - try profiles first, fallback to auth.users
+  let email: string;
   const { data: profile } = await supabase.from("profiles").select("email").eq("id", userId).single();
-  const email = profile?.email || deriveEmail(policyholder);
+  if (profile?.email) {
+    email = profile.email;
+  } else {
+    const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+    email = authUser?.user?.email || deriveEmail(policyholder);
+  }
 
   // 1. Recruit Resolution Agent and instruct to post confirmation
   if (RESOLVER_ID) {
@@ -281,7 +287,7 @@ function parseResolution(messages: { content: string; sender_name: string; messa
 
   let riskLevel: string | null = null;
   for (const msg of textMsgs) {
-    if (msg.sender_name === "Claim Reviewer" || msg.sender_name === "Reviewer") {
+    if (/reviewer/i.test(msg.sender_name)) {
       const riskMatch = msg.content.match(/(?:risk|classification|level)[:\s]*(LOW|MEDIUM|HIGH)/i);
       if (riskMatch) riskLevel = riskMatch[1].toUpperCase();
     }
@@ -290,7 +296,7 @@ function parseResolution(messages: { content: string; sender_name: string; messa
   // Priority 1: Adjuster Decision Report
   for (let i = textMsgs.length - 1; i >= 0; i--) {
     const msg = textMsgs[i];
-    if (msg.sender_name === "Senior Adjuster" && msg.content.includes("Decision")) {
+    if (/adjuster/i.test(msg.sender_name) && msg.content.includes("Decision")) {
       return parseAdjusterDecision(msg.content, riskLevel);
     }
   }
@@ -298,26 +304,36 @@ function parseResolution(messages: { content: string; sender_name: string; messa
   // Priority 2: Investigator verdict
   for (let i = textMsgs.length - 1; i >= 0; i--) {
     const msg = textMsgs[i];
-    if (msg.sender_name === "Fraud Investigator") {
+    if (/investigator/i.test(msg.sender_name)) {
       const verdictMatch = msg.content.match(/(CLEAN|SUSPICIOUS|LIKELY_FRAUDULENT)/i);
       if (verdictMatch) {
         const v = verdictMatch[1].toUpperCase();
+        // If LIKELY_FRAUDULENT or SUSPICIOUS, check if Adjuster already decided
+        if (v !== "CLEAN") {
+          // Look for adjuster decision after this
+          for (let j = i + 1; j < textMsgs.length; j++) {
+            if (/adjuster/i.test(textMsgs[j].sender_name) && textMsgs[j].content.includes("Decision")) {
+              return parseAdjusterDecision(textMsgs[j].content, riskLevel);
+            }
+          }
+          return { status: "investigating", riskLevel, verdict: v, settlementAmount: null, fraudScore: null, reasoning: msg.content.slice(0, 500) };
+        }
         return {
-          status: v === "CLEAN" ? "approved" : "investigating",
+          status: "approved",
           riskLevel,
-          verdict: v,
-          settlementAmount: v === "CLEAN" ? extractAmount(msg.content) : null,
-          fraudScore: v === "CLEAN" ? 1 : null,
+          verdict: "CLEAN",
+          settlementAmount: extractAmount(msg.content),
+          fraudScore: 1,
           reasoning: msg.content.slice(0, 500),
         };
       }
     }
   }
 
-  // Priority 3: Reviewer auto-approve (with or without explicit LOW risk)
+  // Priority 3: Reviewer auto-approve
   for (let i = textMsgs.length - 1; i >= 0; i--) {
     const msg = textMsgs[i];
-    if (msg.sender_name === "Claim Reviewer" || msg.sender_name === "Reviewer") {
+    if (/reviewer/i.test(msg.sender_name)) {
       const approveMatch = msg.content.match(/\bapprov(e|ed|al)\b/i);
       if (approveMatch) {
         return {

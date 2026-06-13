@@ -78,15 +78,52 @@ export async function POST(req: NextRequest) {
     const roomRes = await bandFetch("/chats", { method: "POST", body: JSON.stringify({ chat: {} }) });
     const chatId = roomRes.data.id;
 
+    // Pre-triage: determine risk level from claim data
+    const riskLevel = triageClaim(claimData);
+
+    // Always add Reviewer
     await bandFetch(`/chats/${chatId}/participants`, {
       method: "POST",
       body: JSON.stringify({ participant: { participant_id: CLAIM_REVIEWER_ID } }),
     });
 
-    const content = `@nodesemesta/reviewer investigate: ${JSON.stringify(claimData)}`;
+    // For MEDIUM/HIGH: also add Investigator upfront
+    const INVESTIGATOR_ID = process.env.INVESTIGATOR_ID;
+    const ADJUSTER_ID = process.env.ADJUSTER_ID;
+
+    if (riskLevel !== "LOW" && INVESTIGATOR_ID) {
+      await bandFetch(`/chats/${chatId}/participants`, {
+        method: "POST",
+        body: JSON.stringify({ participant: { participant_id: INVESTIGATOR_ID } }),
+      });
+    }
+
+    // For HIGH: also add Adjuster upfront
+    if (riskLevel === "HIGH" && ADJUSTER_ID) {
+      await bandFetch(`/chats/${chatId}/participants`, {
+        method: "POST",
+        body: JSON.stringify({ participant: { participant_id: ADJUSTER_ID } }),
+      });
+    }
+
+    // Send claim with clear instructions to all participants
+    const claimJson = JSON.stringify(claimData);
+    let instructions: string;
+    if (riskLevel === "LOW") {
+      instructions = `@nodesemesta/reviewer This is a LOW risk claim. Review and auto-approve if appropriate.\n\nClaim data: ${claimJson}`;
+    } else if (riskLevel === "HIGH") {
+      instructions = `@nodesemesta/reviewer @nodesemesta/investigator @nodesemesta/adjuster\n\nHIGH RISK CLAIM — Full investigation required.\n\n1. @nodesemesta/reviewer: Extract facts and classify risk factors.\n2. @nodesemesta/investigator: Analyze fraud patterns and provide verdict (CLEAN/SUSPICIOUS/LIKELY_FRAUDULENT).\n3. @nodesemesta/adjuster: After investigator verdict, issue final decision (APPROVED/PARTIAL_APPROVED/DENIED) with settlement amount.\n\nClaim data: ${claimJson}`;
+    } else {
+      instructions = `@nodesemesta/reviewer @nodesemesta/investigator\n\nMEDIUM RISK CLAIM — Investigation needed.\n\n1. @nodesemesta/reviewer: Extract facts and classify risk factors.\n2. @nodesemesta/investigator: Analyze fraud patterns and provide verdict (CLEAN/SUSPICIOUS/LIKELY_FRAUDULENT). If SUSPICIOUS, recommend adjuster review.\n\nClaim data: ${claimJson}`;
+    }
+
+    const mentions = [{ id: CLAIM_REVIEWER_ID }];
+    if (riskLevel !== "LOW" && INVESTIGATOR_ID) mentions.push({ id: INVESTIGATOR_ID });
+    if (riskLevel === "HIGH" && ADJUSTER_ID) mentions.push({ id: ADJUSTER_ID });
+
     await bandFetch(`/chats/${chatId}/messages`, {
       method: "POST",
-      body: JSON.stringify({ message: { content, mentions: [{ id: CLAIM_REVIEWER_ID }] } }),
+      body: JSON.stringify({ message: { content: instructions, mentions } }),
     });
 
     // Save to Supabase
@@ -109,6 +146,7 @@ export async function POST(req: NextRequest) {
       police_report: claimData.police_report || false,
       medical_claim: claimData.medical_claim || false,
       status: "investigating",
+      risk_level: riskLevel,
     });
 
     if (dbError) console.error("Supabase insert error:", dbError);
@@ -158,4 +196,18 @@ function extractDescription(text: string): string {
   const m2 = text.match(/Description[:\s]*\n?([\s\S]{20,300})/i);
   if (m2) return m2[1].trim();
   return "";
+}
+
+function triageClaim(data: Record<string, unknown>): "LOW" | "MEDIUM" | "HIGH" {
+  let flags = 0;
+  const amount = Number(data.claim_amount) || 0;
+  if (amount > 15000) flags++;
+  if (!data.police_report) flags++;
+  if (Number(data.witnesses) === 0) flags++;
+  if (Number(data.prior_claims_12mo) > 2) flags++;
+  if (data.medical_claim) flags++;
+
+  if (flags >= 3 || amount > 15000) return "HIGH";
+  if (flags >= 1 || amount > 5000) return "MEDIUM";
+  return "LOW";
 }

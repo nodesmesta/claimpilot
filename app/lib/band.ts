@@ -70,22 +70,15 @@ export async function bandFetch(
 }
 
 export async function validateBandEnvironment(): Promise<boolean> {
-  const requiredVars = ['BAND_AGENT_API_KEY', 'CLAIM_REVIEWER_ID', 'INVESTIGATOR_ID', 'ADJUSTER_ID', 'GATEWAY_ID'];
+  const requiredVars = ['BAND_AGENT_API_KEY', 'CLAIM_REVIEWER_ID', 'INVESTIGATOR_ID', 'ADJUSTER_ID'];
   const missing = requiredVars.filter(key => !process.env[key]);
 
   if (missing.length > 0) {
     console.error(`Missing Band environment variables: ${missing.join(', ')}`);
     return false;
   }
-
-  try {
-    await bandFetch('/chats', { method: 'POST', body: JSON.stringify({ chat: {} }) });
-    console.log('Band API connection successful');
-    return true;
-  } catch (error) {
-    console.error('Band API connection failed:', error);
-    return false;
-  }
+  return true;
+}
 }
 
 export async function createBandRoom(): Promise<string> {

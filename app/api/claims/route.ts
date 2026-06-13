@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Check plan limit
-  const { data: profile } = await supabase.from("profiles").select("subscription_status").eq("id", user.id).single();
+  const { data: profile } = await supabase.from("profiles").select("subscription_status").eq("id", user.id).maybeSingle();
   if ((profile?.subscription_status || "free") === "free") {
     const { count } = await supabase.from("claims").select("id", { count: "exact", head: true }).eq("user_id", user.id);
     if ((count || 0) >= FREE_PLAN_LIMIT) {

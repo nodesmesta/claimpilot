@@ -79,7 +79,6 @@ export async function validateBandEnvironment(): Promise<boolean> {
   }
   return true;
 }
-}
 
 export async function createBandRoom(): Promise<string> {
   const { data } = await bandFetch('/chats', { 

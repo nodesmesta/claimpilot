@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Bot, Users, Clock } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Message {
   id: string;
@@ -26,7 +28,7 @@ function getStyle(name: string) {
   return agentStyle[name] || { bg: "bg-zinc-50", border: "border-zinc-200", dot: "bg-zinc-400" };
 }
 
-function StreamingText({ text, speed = 12 }: { text: string; speed?: number }) {
+function StreamingText({ text, speed = 8 }: { text: string; speed?: number }) {
   const [displayed, setDisplayed] = useState("");
   const [done, setDone] = useState(false);
 
@@ -35,7 +37,7 @@ function StreamingText({ text, speed = 12 }: { text: string; speed?: number }) {
     setDisplayed("");
     setDone(false);
     const interval = setInterval(() => {
-      i++;
+      i += 2;
       setDisplayed(text.slice(0, i));
       if (i >= text.length) {
         clearInterval(interval);
@@ -46,10 +48,18 @@ function StreamingText({ text, speed = 12 }: { text: string; speed?: number }) {
   }, [text, speed]);
 
   return (
-    <span>
-      {displayed}
+    <div className="prose-agent">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayed}</ReactMarkdown>
       {!done && <span className="inline-block w-1.5 h-4 bg-current opacity-70 animate-pulse ml-0.5 align-middle" />}
-    </span>
+    </div>
+  );
+}
+
+function MarkdownContent({ content }: { content: string }) {
+  return (
+    <div className="prose-agent">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+    </div>
   );
 }
 
@@ -161,12 +171,12 @@ export default function LiveInvestigationPage() {
                       <span className="font-semibold text-sm text-zinc-900">{msg.sender_name}</span>
                       <span className="text-xs text-zinc-400 ml-auto">{formatTime(msg.inserted_at)}</span>
                     </div>
-                    <p className="text-zinc-700 text-sm whitespace-pre-wrap">
+                    <div className="text-zinc-700 text-sm">
                       {newMsgIds.has(msg.id)
                         ? <StreamingText text={msg.content} />
-                        : msg.content
+                        : <MarkdownContent content={msg.content} />
                       }
-                    </p>
+                    </div>
                   </div>
                 );
               })}

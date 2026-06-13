@@ -80,3 +80,119 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #a1a1aa;
 }
+
+/* Agent markdown prose */
+.prose-agent {
+  font-size: 0.875rem;
+  line-height: 1.625;
+  color: #374151;
+}
+
+.prose-agent p {
+  margin: 0.5em 0;
+}
+
+.prose-agent p:first-child {
+  margin-top: 0;
+}
+
+.prose-agent p:last-child {
+  margin-bottom: 0;
+}
+
+.prose-agent strong {
+  font-weight: 600;
+  color: #111827;
+}
+
+.prose-agent em {
+  font-style: italic;
+}
+
+.prose-agent h1, .prose-agent h2, .prose-agent h3 {
+  font-weight: 600;
+  color: #111827;
+  margin: 0.75em 0 0.25em;
+}
+
+.prose-agent h1 { font-size: 1.1rem; }
+.prose-agent h2 { font-size: 1rem; }
+.prose-agent h3 { font-size: 0.925rem; }
+
+.prose-agent ul, .prose-agent ol {
+  margin: 0.375em 0;
+  padding-left: 1.25em;
+}
+
+.prose-agent li {
+  margin: 0.2em 0;
+}
+
+.prose-agent ul li {
+  list-style-type: disc;
+}
+
+.prose-agent ol li {
+  list-style-type: decimal;
+}
+
+.prose-agent code {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 0.125em 0.375em;
+  font-size: 0.8125rem;
+  font-family: ui-monospace, monospace;
+}
+
+.prose-agent pre {
+  background: #1f2937;
+  color: #f9fafb;
+  border-radius: 8px;
+  padding: 0.75em 1em;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.prose-agent pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+}
+
+.prose-agent table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  font-size: 0.8125rem;
+}
+
+.prose-agent th, .prose-agent td {
+  border: 1px solid #e5e7eb;
+  padding: 0.375em 0.625em;
+  text-align: left;
+}
+
+.prose-agent th {
+  background: #f9fafb;
+  font-weight: 600;
+}
+
+.prose-agent blockquote {
+  border-left: 3px solid #d1d5db;
+  padding-left: 0.75em;
+  margin: 0.5em 0;
+  color: #6b7280;
+}
+
+.prose-agent hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 0.75em 0;
+}
+
+.prose-agent a {
+  color: #2563eb;
+  text-decoration: underline;
+}

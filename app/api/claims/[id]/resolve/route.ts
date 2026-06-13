@@ -200,7 +200,7 @@ async function sendNotification(
       const { Resend } = await import("resend");
       const resend = new Resend(process.env.RESEND_API_KEY);
       const { error } = await resend.emails.send({
-        from: process.env.NOTIFICATION_FROM_EMAIL || "onboarding@resend.dev",
+        from: process.env.NOTIFICATION_FROM_EMAIL || "ClaimPilot <noreply@nodesemesta.com>",
         to: email,
         subject,
         html: body,

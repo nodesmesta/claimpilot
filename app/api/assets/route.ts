@@ -78,6 +78,8 @@ export async function GET(req: NextRequest) {
 }
 
 function parseAssetPDF(text: string) {
+  // Text from pdfjs comes as space-separated, not newlines.
+  // Use non-greedy match stopping at next keyword.
   const get = (pattern: RegExp): string | null => {
     const m = text.match(pattern);
     return m ? m[1].trim() : null;
@@ -90,23 +92,23 @@ function parseAssetPDF(text: string) {
   };
 
   return {
-    policyholder: get(/Name:\s*(.+)/i) || "Unknown",
-    policy_number: get(/Policy Number:\s*(.+)/i) || `POL-${Date.now()}`,
-    policy_type: get(/Policy Type:\s*(.+)/i),
-    effective_date: get(/Effective Date:\s*(\d{4}-\d{2}-\d{2})/i),
-    expiration_date: get(/Expiration Date:\s*(\d{4}-\d{2}-\d{2})/i),
-    premium: get(/Premium:\s*(.+)/i),
-    vehicle_description: get(/Primary Vehicle:\s*(.+)/i),
-    vin: get(/VIN:\s*(.+)/i),
-    license_plate: get(/License Plate:\s*(.+)/i),
-    estimated_value: getNum(/Estimated Value:\s*\$?([\d,]+)/i),
-    deductible: getNum(/Deductible:\s*\$?([\d,]+)/i),
-    coverage_collision: get(/Collision:\s*(.+)/i),
-    coverage_comprehensive: get(/Comprehensive:\s*(.+)/i),
-    coverage_liability: get(/Liability:\s*(.+)/i),
-    payment_method: get(/Method:\s*(.+)/i),
-    billing_cycle: get(/Billing Cycle:\s*(.+)/i),
-    claims_history_total: parseInt(get(/Total Claims \(lifetime\):\s*(\d+)/i) || "0"),
-    claims_history_12mo: parseInt(get(/Claims \(last 12 months\):\s*(\d+)/i) || "0"),
+    policyholder: get(/Name:\s+([A-Z][a-z]+ [A-Z][a-z]+)/i) || "Unknown",
+    policy_number: get(/Policy Number:\s+(POL-[\w-]+)/i) || `POL-${Date.now()}`,
+    policy_type: get(/Policy Type:\s+(.+?)(?:\s+Effective|\s+$)/i),
+    effective_date: get(/Effective Date:\s+(\d{4}-\d{2}-\d{2})/i),
+    expiration_date: get(/Expiration Date:\s+(\d{4}-\d{2}-\d{2})/i),
+    premium: get(/Premium:\s+(\$[\d,]+\/\w+)/i),
+    vehicle_description: get(/Primary Vehicle:\s+(.+?)(?:\s+VIN:)/i),
+    vin: get(/VIN:\s+([\w]+)/i),
+    license_plate: get(/License Plate:\s+(.+?)(?:\s+Estimated)/i),
+    estimated_value: getNum(/Estimated Value:\s+\$?([\d,]+)/i),
+    deductible: getNum(/Deductible:\s+\$?([\d,]+)/i),
+    coverage_collision: get(/Collision:\s+(\$[\d,]+ per \w+)/i),
+    coverage_comprehensive: get(/Comprehensive:\s+(\$[\d,]+ per \w+)/i),
+    coverage_liability: get(/Liability:\s+(\$[\d,\/\s]+)/i),
+    payment_method: get(/Method:\s+(.+?)(?:\s+Billing)/i),
+    billing_cycle: get(/Billing Cycle:\s+(\w+)/i),
+    claims_history_total: parseInt(get(/Total Claims \(lifetime\):\s+(\d+)/i) || "0"),
+    claims_history_12mo: parseInt(get(/Claims \(last 12 months\):\s+(\d+)/i) || "0"),
   };
 }

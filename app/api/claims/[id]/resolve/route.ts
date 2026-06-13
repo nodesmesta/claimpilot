@@ -54,6 +54,34 @@ export async function POST(
     // 2. Parse decision
     const resolution = parseResolution(messages);
     if (!resolution) {
+      // Check if agents stalled — retry if no agent response after 2 min
+      const agentMessages = messages.filter(m => m.message_type === "text" && m.sender_name !== "Gateway");
+      const { data: claim } = await supabase
+        .from("claims")
+        .select("created_at, risk_level")
+        .eq("room_id", chatId)
+        .single();
+
+      if (claim) {
+        const ageMs = Date.now() - new Date(claim.created_at).getTime();
+        const hasNoSubstantiveResponse = agentMessages.length === 0 ||
+          agentMessages.every(m => m.content.includes("will begin") || m.content.includes("received"));
+
+        if (ageMs > 30_000 && hasNoSubstantiveResponse) {
+          // Retry: resend instruction
+          await bandFetch(`/chats/${chatId}/messages`, {
+            method: "POST",
+            body: JSON.stringify({
+              message: {
+                content: `[RETRY] Agents, please process this claim now. The investigation has stalled. Review the claim data above and provide your analysis/decision.`,
+                mentions: [],
+              },
+            }),
+          });
+          return NextResponse.json({ resolved: false, reason: "Stalled — retry sent" });
+        }
+      }
+
       return NextResponse.json({ resolved: false, reason: "No final decision found yet" });
     }
 

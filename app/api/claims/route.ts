@@ -151,10 +151,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to save claim to database" }, { status: 500 });
     }
 
+    // Fire-and-forget: auto-resolve after agent responds
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://pilot.nodesemesta.com';
+    scheduleResolve(appUrl, chatId);
+
     return NextResponse.json({ room_id: chatId, claim_id: claimId, status: "submitted", parsed: claimData });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+function scheduleResolve(appUrl: string, chatId: string) {
+  // Try resolve at 8s, 15s, 30s, 60s after submission
+  const delays = [8000, 15000, 30000, 60000];
+  for (const delay of delays) {
+    setTimeout(() => {
+      fetch(`${appUrl}/api/claims/${chatId}/resolve`, { method: "POST" }).catch(() => {});
+    }, delay);
   }
 }
 

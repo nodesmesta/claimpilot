@@ -83,23 +83,21 @@ export async function POST(req: NextRequest) {
     // Validate: claim must be for user's own registered asset
     const policyNumber = (claimData.policy_type as string)?.match(/POL-[\w-]+/)?.[0]
       || (claimData.policy_number as string);
-    if (policyNumber) {
-      const { data: asset } = await supabase
-        .from("assets")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("policy_number", policyNumber)
-        .single();
-      if (!asset) {
-        return NextResponse.json({ 
-          error: `Policy ${policyNumber} is not registered in your assets. Please register your asset first.` 
-        }, { status: 403 });
-      }
-    } else {
-      // No policy found in claim — reject
+    if (!policyNumber) {
       return NextResponse.json({ 
         error: "No policy number found in claim. Ensure your claim PDF contains a valid policy reference." 
       }, { status: 400 });
+    }
+    const { data: asset } = await supabase
+      .from("assets")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("policy_number", policyNumber)
+      .single();
+    if (!asset) {
+      return NextResponse.json({ 
+        error: `Policy ${policyNumber} is not registered in your assets. Please register your asset first.` 
+      }, { status: 403 });
     }
 
     // Create Band room and submit
@@ -128,13 +126,14 @@ export async function POST(req: NextRequest) {
 
     // Send claim with clear instructions to all participants
     const claimJson = JSON.stringify(claimData);
+    const assetContext = `\n\nRegistered Asset:\n- Policy: ${asset.policy_number} (${asset.policy_type})\n- Policyholder: ${asset.policyholder}\n- Vehicle: ${asset.vehicle_description || "N/A"}\n- Estimated Value: $${(asset.estimated_value || 0).toLocaleString()}\n- Deductible: $${(asset.deductible || 0).toLocaleString()}\n- Payment Method: ${asset.payment_method || "N/A"}`;
     let instructions: string;
     if (riskLevel === "LOW") {
-      instructions = `@nodesemesta/reviewer This is a LOW risk claim. Review and auto-approve if appropriate.\n\nClaim data: ${claimJson}`;
+      instructions = `@nodesemesta/reviewer This is a LOW risk claim. Review and auto-approve if appropriate.\n\nClaim data: ${claimJson}${assetContext}`;
     } else if (riskLevel === "HIGH") {
-      instructions = `@nodesemesta/reviewer @nodesemesta/investigator @nodesemesta/adjuster\n\nHIGH RISK CLAIM — Full investigation required.\n\n1. @nodesemesta/reviewer: Extract facts and classify risk factors.\n2. @nodesemesta/investigator: Analyze fraud patterns and provide verdict (CLEAN/SUSPICIOUS/LIKELY_FRAUDULENT).\n3. @nodesemesta/adjuster: After investigator verdict, issue final decision (APPROVED/PARTIAL_APPROVED/DENIED) with settlement amount.\n\nClaim data: ${claimJson}`;
+      instructions = `@nodesemesta/reviewer @nodesemesta/investigator @nodesemesta/adjuster\n\nHIGH RISK CLAIM — Full investigation required.\n\n1. @nodesemesta/reviewer: Extract facts and classify risk factors.\n2. @nodesemesta/investigator: Analyze fraud patterns and provide verdict (CLEAN/SUSPICIOUS/LIKELY_FRAUDULENT).\n3. @nodesemesta/adjuster: After investigator verdict, issue final decision (APPROVED/PARTIAL_APPROVED/DENIED) with settlement amount.\n\nClaim data: ${claimJson}${assetContext}`;
     } else {
-      instructions = `@nodesemesta/reviewer @nodesemesta/investigator\n\nMEDIUM RISK CLAIM — Investigation needed.\n\n1. @nodesemesta/reviewer: Extract facts and classify risk factors.\n2. @nodesemesta/investigator: Analyze fraud patterns and provide verdict (CLEAN/SUSPICIOUS/LIKELY_FRAUDULENT). If SUSPICIOUS, recommend adjuster review.\n\nClaim data: ${claimJson}`;
+      instructions = `@nodesemesta/reviewer @nodesemesta/investigator\n\nMEDIUM RISK CLAIM — Investigation needed.\n\n1. @nodesemesta/reviewer: Extract facts and classify risk factors.\n2. @nodesemesta/investigator: Analyze fraud patterns and provide verdict (CLEAN/SUSPICIOUS/LIKELY_FRAUDULENT). If SUSPICIOUS, recommend adjuster review.\n\nClaim data: ${claimJson}${assetContext}`;
     }
 
     const mentions = [{ id: CLAIM_REVIEWER_ID }];

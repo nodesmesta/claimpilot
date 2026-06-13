@@ -122,7 +122,9 @@ export async function POST(req: NextRequest) {
     await sendMessageToRoom(chatId, instructions, mentions);
 
     // Save to Supabase
-    const claimId = (claimData.claim_id as string) || `CLM-${Date.now()}`;
+    const baseClaimId = (claimData.claim_id as string) || `CLM-${Date.now()}`;
+    // Ensure unique claim_id by appending short timestamp suffix
+    const claimId = `${baseClaimId}-${Date.now().toString(36).slice(-4)}`;
     const { error: dbError } = await supabase.from("claims").insert({
       user_id: user.id,
       claim_id: claimId,
@@ -144,7 +146,10 @@ export async function POST(req: NextRequest) {
       risk_level: riskLevel,
     });
 
-    if (dbError) console.error("Supabase insert error:", dbError);
+    if (dbError) {
+      console.error("Supabase insert error:", dbError);
+      return NextResponse.json({ error: "Failed to save claim to database" }, { status: 500 });
+    }
 
     return NextResponse.json({ room_id: chatId, claim_id: claimId, status: "submitted", parsed: claimData });
   } catch (error: unknown) {

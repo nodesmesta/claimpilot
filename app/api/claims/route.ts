@@ -66,8 +66,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "PDF file required" }, { status: 400 });
       }
       const buffer = Buffer.from(await file.arrayBuffer());
-      const pdfParse = (await import("pdf-parse")).default;
-      const { text } = await pdfParse(buffer);
+      const { extractTextFromPDF } = await import("@/app/lib/pdf");
+      const text = await extractTextFromPDF(buffer);
       claimData = parseClaimPDF(text);
     } else {
       // JSON body (backward-compatible)

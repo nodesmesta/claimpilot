@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const pdfParse = (await import("pdf-parse")).default;
-    const { text } = await pdfParse(buffer);
+    const { extractTextFromPDF } = await import("@/app/lib/pdf");
+    const text = await extractTextFromPDF(buffer);
 
     // Parse structured data from PDF text
     const data = parseAssetPDF(text);

@@ -70,34 +70,28 @@ export default function LiveInvestigationPage() {
   const [error, setError] = useState("");
   const [newMsgIds, setNewMsgIds] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
-  const sinceRef = useRef<string | null>(null);
 
   const fetchMessages = useCallback(async () => {
     try {
-      const query = sinceRef.current ? `?since=${sinceRef.current}` : "";
-      const res = await fetch(`/api/claims/${chatId}/messages${query}`);
+      const res = await fetch(`/api/claims/${chatId}/messages`);
       if (!res.ok) return;
       const json = await res.json();
-      const newMsgs: Message[] = json.data || [];
-      if (newMsgs.length > 0) {
+      const allMsgs: Message[] = json.data || [];
+      if (allMsgs.length > 0) {
         setMessages((prev) => {
-          const ids = new Set(prev.map((m) => m.id));
-          const unique = newMsgs.filter((m) => !ids.has(m.id));
-          if (unique.length === 0) return prev;
-          // Mark truly new messages for streaming (skip first load)
-          if (sinceRef.current) {
-            const freshIds = new Set(unique.filter(m => m.sender_name !== "Gateway").map(m => m.id));
-            if (freshIds.size > 0) setNewMsgIds(prev => new Set([...prev, ...freshIds]));
+          const prevIds = new Set(prev.map((m) => m.id));
+          const fresh = allMsgs.filter((m) => !prevIds.has(m.id));
+          if (fresh.length === 0) return prev;
+          // Mark new agent messages for streaming
+          const freshAgentIds = new Set(fresh.filter(m => m.sender_name !== "Gateway").map(m => m.id));
+          if (freshAgentIds.size > 0 && prev.length > 0) {
+            setNewMsgIds(p => new Set([...p, ...freshAgentIds]));
           }
-          return [...prev, ...unique].sort(
+          return allMsgs.sort(
             (a, b) => new Date(a.inserted_at).getTime() - new Date(b.inserted_at).getTime()
           );
         });
-        const latest = newMsgs.reduce((a, b) =>
-          new Date(a.inserted_at) > new Date(b.inserted_at) ? a : b
-        );
-        sinceRef.current = latest.inserted_at;
-        // Try to resolve claim status from messages
+        // Try to resolve claim status
         fetch(`/api/claims/${chatId}/resolve`, { method: "POST" }).catch(() => {});
       }
     } catch {

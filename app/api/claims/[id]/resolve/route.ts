@@ -46,6 +46,11 @@ export async function POST(
       { headers: { "X-API-Key": BAND_AGENT_API_KEY } }
     );
     if (!res.ok) {
+      const errText = await res.text();
+      if (errText.includes("deleted") || errText.includes("not found")) {
+        await supabase.from("claims").update({ status: "denied", resolution_reasoning: "Band room no longer available" }).eq("room_id", chatId);
+        return NextResponse.json({ resolved: false, reason: "Room deleted" });
+      }
       return NextResponse.json({ error: "Failed to fetch messages" }, { status: 502 });
     }
     const json = await res.json();
@@ -350,6 +355,14 @@ async function sendRetry(chatId: string, agentId: string, retryCount: number, re
 
     return `Retry ${retryCount + 1}/${MAX_RETRIES} sent (reason: ${reason})`;
   } catch (err: any) {
+    // If room is deleted or gone, mark claim as failed — no point retrying
+    if (err.message?.includes("deleted") || err.message?.includes("not found")) {
+      await supabase.from("claims").update({
+        status: "denied",
+        resolution_reasoning: "Band room no longer available",
+      }).eq("room_id", chatId);
+      return "Room deleted — claim marked as failed";
+    }
     return `Retry failed: ${err.message}`;
   }
 }

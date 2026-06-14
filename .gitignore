@@ -28,3 +28,10 @@ CLAUDE.md
 
 # Supabase local
 supabase/.temp/
+supabase/config.toml
+supabase/migrations/
+supabase/
+
+# Local scripts and samples
+scripts/
+samples/

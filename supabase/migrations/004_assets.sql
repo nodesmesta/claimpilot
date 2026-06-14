@@ -2,7 +2,7 @@ create table public.assets (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users(id) on delete cascade not null,
   policyholder text not null,
-  policy_number text not null unique,
+  policy_number text not null,
   policy_type text,
   effective_date date,
   expiration_date date,

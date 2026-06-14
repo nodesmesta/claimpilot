@@ -1,0 +1,8 @@
+# Ignore database setup and utility scripts for Vercel deployment
+/supabase
+/scripts
+.kiro
+AGENTS.md
+CLAUDE.md
+.env.local
+.env

@@ -73,7 +73,16 @@ export async function GET(
 
     return NextResponse.json({
       data: all,
-      meta: { total_count: all.length, sources: { context: contextMsgs.length, messages: receivedMsgs.length } }
+      meta: { 
+        total_count: all.length, 
+        sources: { context: contextMsgs.length, messages: receivedMsgs.length },
+        agent_names: {
+          [process.env.CLAIM_REVIEWER_ID || ""]: "Reviewer",
+          [process.env.INVESTIGATOR_ID || ""]: "Investigator",
+          [process.env.ADJUSTER_ID || ""]: "Adjuster",
+          [process.env.RESOLVER_ID || ""]: "Resolver"
+        }
+      }
     });
   } catch (error: any) {
     console.error(`Error fetching messages:`, error.message);

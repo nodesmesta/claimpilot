@@ -10,12 +10,10 @@ Multi-agent system that investigates insurance claims with dynamic recruitment o
 User submits claim → Frontend creates Band room + adds Reviewer
 → Reviewer triages (risk_level: LOW/MEDIUM/HIGH)
   → LOW: Reviewer auto-approves (REVIEWER_REPORT + AUTO_APPROVE)
-  → MEDIUM/HIGH: Reviewer outputs [RECRUIT:investigator]
-    → Backend detects tag → adds Investigator to room
+  → MEDIUM/HIGH: Reviewer recruits Investigator (via native add_participant_service)
     → Investigator analyzes fraud → verdict (CLEAN/SUSPICIOUS/LIKELY_FRAUDULENT)
       → CLEAN: auto-approve
-      → SUSPICIOUS/LIKELY_FRAUDULENT: Investigator outputs [RECRUIT:adjuster]
-        → Backend detects tag → adds Adjuster to room
+      → SUSPICIOUS/LIKELY_FRAUDULENT: Investigator recruits Adjuster (via native add_participant_service)
         → Adjuster issues final decision (APPROVED/PARTIAL_APPROVED/DENIED)
 → Backend resolves: email + payment + Resolver confirmation
 ```

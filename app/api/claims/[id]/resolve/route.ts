@@ -5,6 +5,29 @@ const BAND_API_URL = process.env.BAND_API_URL || "https://app.band.ai";
 const BAND_AGENT_API_KEY = process.env.BAND_AGENT_API_KEY!;
 const RESOLVER_ID = process.env.RESOLVER_ID;
 
+const AGENT_ID_TO_ROLE: Record<string, string> = {
+  [process.env.CLAIM_REVIEWER_ID || ""]: "reviewer",
+  [process.env.INVESTIGATOR_ID || ""]: "investigator",
+  [process.env.ADJUSTER_ID || ""]: "adjuster",
+  [process.env.RESOLVER_ID || ""]: "resolver",
+};
+
+function extractRecruitedAgents(messages: { sender_name: string; message_type: string }[]): string[] {
+  const recruited = new Set<string>();
+  for (const msg of messages) {
+    if (msg.message_type === "text") {
+      if (/investigator/i.test(msg.sender_name)) {
+        recruited.add("investigator");
+      } else if (/adjuster/i.test(msg.sender_name)) {
+        recruited.add("adjuster");
+      } else if (/resolver/i.test(msg.sender_name)) {
+        recruited.add("resolver");
+      }
+    }
+  }
+  return Array.from(recruited);
+}
+
 async function bandFetch(path: string, options: RequestInit = {}) {
   let lastError: Error | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -93,12 +116,14 @@ export async function POST(
     // If still investigating (escalated but next agent hasn't decided), check for stalled agents
     if (resolution.status === "investigating") {
       const retryResult = await retryFailedDelivery(chatId, contextData.data || []);
+      const recruitedAgents = extractRecruitedAgents(messages);
       // Update intermediate state (risk_level, verdict so far)
       await supabase.from("claims").update({
         risk_level: resolution.riskLevel,
         verdict: resolution.verdict,
         fraud_score: resolution.fraudScore,
         resolution_reasoning: resolution.reasoning,
+        recruited_agents: recruitedAgents,
       }).eq("room_id", chatId);
       return NextResponse.json({ resolved: false, reason: retryResult || "Awaiting next agent response" });
     }
@@ -118,6 +143,7 @@ export async function POST(
     // At this point, resolution.status is always final (approved/partial_approved/denied)
     // because "investigating" is handled above with early return
 
+    const recruitedAgents = extractRecruitedAgents(messages);
     // 4. Update claim in DB
     const { error: updateError } = await supabase
       .from("claims")
@@ -129,6 +155,7 @@ export async function POST(
         fraud_score: resolution.fraudScore,
         resolution_reasoning: resolution.reasoning,
         resolved_at: new Date().toISOString(),
+        recruited_agents: recruitedAgents,
       })
       .eq("room_id", chatId);
 
@@ -358,17 +385,24 @@ async function retryFailedDelivery(chatId: string, rawMessages: any[]): Promise<
   const mentionedAgents = new Set<string>();
   const respondedAgents = new Set<string>();
 
+  // Dynamically resolve Gateway ID from messages where sender_name is Gateway
+  const gatewayMsg = rawMessages.find((m: any) => m.sender_name === "Gateway");
+  const gatewayId = gatewayMsg?.sender_id || process.env.GATEWAY_ID || "";
+
   for (const msg of rawMessages) {
     const mentions: { id: string }[] = msg.metadata?.mentions || [];
     for (const m of mentions) {
-      if (m.id !== process.env.GATEWAY_ID) mentionedAgents.add(m.id);
+      if (m.id !== gatewayId) mentionedAgents.add(m.id);
     }
     if (msg.sender_name !== "Gateway" && msg.message_type === "text") {
       respondedAgents.add(msg.sender_id);
     }
   }
 
-  const stalledAgent = [...mentionedAgents].find(id => !respondedAgents.has(id));
+  const stalledAgent = [...mentionedAgents].find(id => 
+    !respondedAgents.has(id) && 
+    id in AGENT_ID_TO_ROLE
+  );
   if (stalledAgent) {
     return await sendRetry(chatId, stalledAgent, retryCount, "no response", claim, rawMessages);
   }
@@ -418,12 +452,7 @@ async function retryFailedDelivery(chatId: string, rawMessages: any[]): Promise<
   return null;
 }
 
-const AGENT_ID_TO_ROLE: Record<string, string> = {
-  [process.env.CLAIM_REVIEWER_ID || ""]: "reviewer",
-  [process.env.INVESTIGATOR_ID || ""]: "investigator",
-  [process.env.ADJUSTER_ID || ""]: "adjuster",
-  [process.env.RESOLVER_ID || ""]: "resolver",
-};
+
 
 function buildRetryMessage(agentId: string, claim: any, rawMessages: any[]): string {
   const role = AGENT_ID_TO_ROLE[agentId] || "agent";

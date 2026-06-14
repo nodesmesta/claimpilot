@@ -68,18 +68,19 @@ function MarkdownContent({ content }: { content: string }) {
   );
 }
 
-// Agent ID to name mapping
-const AGENT_NAMES: Record<string, string> = {
+// Default Agent ID to name mapping fallback
+const DEFAULT_AGENT_NAMES: Record<string, string> = {
   "3ffde2c6-2967-42fd-a930-61ff239d8c18": "Reviewer",
   "71c8c2c4-7a60-4f03-991e-ed6afb52b186": "Investigator",
   "2e353c0b-23cc-4a37-ac4a-87b7a53f9c69": "Adjuster",
   "e6f31f80-3ab9-4a7d-b6f9-4147a6b77b83": "Resolver",
 };
 
-function cleanContent(content: string, senderName: string): string {
+function cleanContent(content: string, senderName: string, customAgentNames?: Record<string, string>): string {
+  const mergedNames = { ...DEFAULT_AGENT_NAMES, ...customAgentNames };
   // Replace @[[uuid]] with @AgentName
   let cleaned = content.replace(/@\[\[([a-f0-9-]+)\]\]/g, (_, id) => {
-    const name = AGENT_NAMES[id];
+    const name = mergedNames[id];
     return name ? `**@${name}**` : "";
   });
   // Remove @nodesemesta/handle mentions (redundant with above)
@@ -123,6 +124,7 @@ export default function LiveInvestigationPage() {
   const [error, setError] = useState("");
   const [newMsgIds, setNewMsgIds] = useState<Set<string>>(new Set());
   const [resolved, setResolved] = useState(false);
+  const [customAgentNames, setCustomAgentNames] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const fetchMessages = useCallback(async () => {
@@ -131,6 +133,9 @@ export default function LiveInvestigationPage() {
       if (!res.ok) return;
       const json = await res.json();
       const allMsgs: Message[] = json.data || [];
+      if (json.meta?.agent_names) {
+        setCustomAgentNames(json.meta.agent_names);
+      }
       if (allMsgs.length > 0) {
         setMessages((prev) => {
           const prevIds = new Set(prev.map((m) => m.id));
@@ -240,8 +245,8 @@ export default function LiveInvestigationPage() {
                     </div>
                     <div className="text-zinc-700 text-sm">
                       {newMsgIds.has(msg.id)
-                        ? <StreamingText text={cleanContent(msg.content, msg.sender_name)} />
-                        : <MarkdownContent content={cleanContent(msg.content, msg.sender_name)} />
+                        ? <StreamingText text={cleanContent(msg.content, msg.sender_name, customAgentNames)} />
+                        : <MarkdownContent content={cleanContent(msg.content, msg.sender_name, customAgentNames)} />
                       }
                     </div>
                   </div>

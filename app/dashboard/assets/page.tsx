@@ -29,24 +29,29 @@ export default function AssetsPage() {
   useEffect(() => { fetchAssets(); }, []);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     setUploading(true);
     setMsg("");
-    const form = new FormData();
-    form.append("file", file);
-    try {
-      const res = await fetch("/api/assets", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setMsg(`✓ Asset uploaded: ${data.asset.policyholder} — ${data.asset.policy_number}`);
-      fetchAssets();
-    } catch (err: unknown) {
-      setMsg(`✗ ${err instanceof Error ? err.message : "Upload failed"}`);
-    } finally {
-      setUploading(false);
-      e.target.value = "";
+    const messages: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const form = new FormData();
+      form.append("file", file);
+      try {
+        const res = await fetch("/api/assets", { method: "POST", body: form });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        messages.push(`✓ Asset uploaded: ${data.asset.policyholder} — ${data.asset.policy_number}`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Upload failed";
+        messages.push(`✗ ${msg}`);
+      }
     }
+    setMsg(messages.join("\n"));
+    setUploading(false);
+    e.target.value = "";
+    fetchAssets();
   };
 
   return (
@@ -63,13 +68,13 @@ export default function AssetsPage() {
           <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium hover:opacity-90 transition shadow-lg shadow-blue-500/20 cursor-pointer">
             <Upload className="w-4 h-4" />
             {uploading ? "Uploading..." : "Upload PDF"}
-            <input type="file" accept=".pdf" onChange={handleUpload} className="hidden" disabled={uploading} />
+            <input type="file" accept=".pdf" multiple onChange={handleUpload} className="hidden" disabled={uploading} />
           </label>
         </div>
       </div>
 
       {msg && (
-        <div className={`p-4 rounded-xl text-sm ${msg.startsWith("✓") ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+        <div className={`p-4 rounded-xl text-sm whitespace-pre-line ${msg.startsWith("✓") ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
           {msg}
         </div>
       )}

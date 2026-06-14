@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     // Parse structured data from PDF text
     const data = parseAssetPDF(text);
 
-    // Store in DB
+    // Store in DB — insert standard row (unique constraint is dropped from DB)
     const { data: inserted, error } = await supabase.from("assets").insert({
       user_id: user.id,
       policyholder: data.policyholder,

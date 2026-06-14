@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/claims/retry-stalled",
-      "schedule": "* * * * *"
+      "schedule": "0 0 * * *"
     }
   ],
   "functions": {

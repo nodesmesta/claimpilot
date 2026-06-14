@@ -32,6 +32,5 @@ supabase/config.toml
 supabase/migrations/
 supabase/
 
-# Local scripts and samples
+# Local scripts
 scripts/
-samples/

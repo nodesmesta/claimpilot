@@ -19,6 +19,11 @@ body {
   overflow-x: hidden;
 }
 
+/* Ensure all interactive elements have pointer cursor */
+a, button, [role="button"], label[for], input[type="file"] + label, summary {
+  cursor: pointer;
+}
+
 /* Gradient animation */
 @keyframes gradient {
   0% { background-position: 0% 50%; }

@@ -74,11 +74,11 @@ export default function DashboardLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-white text-zinc-900">
+    <div className="h-screen overflow-hidden bg-white text-zinc-900">
       {/* Mobile sidebar toggle */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 bg-white/80 backdrop-blur-sm border border-zinc-200 p-2 rounded-lg shadow-sm"
+        className="cursor-pointer md:hidden fixed top-4 left-4 z-50 bg-white/80 backdrop-blur-sm border border-zinc-200 p-2 rounded-lg shadow-sm"
       >
         {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
       </button>
@@ -142,7 +142,7 @@ export default function DashboardLayout({
                   {user.subscription_status || "free"}
                 </span>
               </div>
-              <button onClick={handleSignOut} className="p-2 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700">
+              <button onClick={handleSignOut} className="cursor-pointer p-2 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700">
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
@@ -156,24 +156,24 @@ export default function DashboardLayout({
       )}
 
       {/* Main content */}
-      <main className="md:ml-64 min-h-screen bg-gradient-to-br from-white via-white to-blue-50/30">
+      <main className="md:ml-64 h-screen flex flex-col bg-gradient-to-br from-white via-white to-blue-50/30">
         {/* Navbar */}
-        <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-zinc-200 px-4 md:px-8 py-3 flex items-center justify-between">
+        <div className="flex-shrink-0 z-20 bg-white/80 backdrop-blur-xl border-b border-zinc-200 px-4 md:px-8 py-3 flex items-center justify-between">
           <h1 className="text-lg font-semibold text-zinc-900">ClaimPilot</h1>
           <button
             onClick={() => setChatOpen(!chatOpen)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${chatOpen ? "bg-zinc-200 text-zinc-700" : "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/20 hover:opacity-90"}`}
+            className={`cursor-pointer flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${chatOpen ? "bg-zinc-200 text-zinc-700" : "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/20 hover:opacity-90"}`}
           >
             <MessageCircle className="w-4 h-4" />
             {chatOpen ? "Close Chat" : "Chat with AI"}
           </button>
         </div>
-        <div className="flex h-[calc(100vh-57px)]">
-          <div className={`flex-1 overflow-y-auto p-4 md:p-8 ${chatOpen ? "" : ""}`}>
+        <div className="flex flex-1 min-h-0">
+          <div className={`flex-1 overflow-y-auto p-4 md:p-8`}>
             {children}
           </div>
           {chatOpen && (
-            <div className="w-96 border-l border-zinc-200 flex-shrink-0">
+            <div className="w-96 border-l border-zinc-200 flex-shrink-0 overflow-y-auto">
               <AIChatPanel />
             </div>
           )}

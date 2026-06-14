@@ -84,7 +84,7 @@ export default function ClaimsPage() {
           <p className="text-zinc-500 mt-1">All submitted insurance claims</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={fetchClaims} className="p-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition">
+          <button onClick={fetchClaims} className="cursor-pointer p-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition">
             <RefreshCw className={`w-4 h-4 text-zinc-600 ${loading ? "animate-spin" : ""}`} />
           </button>
           <Link href="/dashboard/claims/new" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium hover:opacity-90 transition shadow-lg shadow-blue-500/20">

@@ -6,19 +6,33 @@ const BAND_AGENT_API_KEY = process.env.BAND_AGENT_API_KEY!;
 const RESOLVER_ID = process.env.RESOLVER_ID;
 
 async function bandFetch(path: string, options: RequestInit = {}) {
-  const res = await fetch(`${BAND_API_URL}/api/v1/agent${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": BAND_AGENT_API_KEY,
-      ...options.headers,
-    },
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Band API ${res.status}: ${text}`);
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`${BAND_API_URL}/api/v1/agent${path}`, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": BAND_AGENT_API_KEY,
+          ...options.headers,
+        },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        if (res.status === 429 || res.status >= 500) {
+          lastError = new Error(`Band API ${res.status}: ${text}`);
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+          continue;
+        }
+        throw new Error(`Band API ${res.status}: ${text}`);
+      }
+      return res.json();
+    } catch (err: any) {
+      lastError = err;
+      if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+    }
   }
-  return res.json();
+  throw lastError || new Error("Band API request failed");
 }
 
 /**
@@ -40,28 +54,53 @@ export async function POST(
   const { id: chatId } = await params;
 
   try {
-    // 1. Fetch messages from Band room
-    const res = await fetch(
-      `${BAND_API_URL}/api/v1/agent/chats/${chatId}/context`,
-      { headers: { "X-API-Key": BAND_AGENT_API_KEY } }
-    );
-    if (!res.ok) {
+    // 1. Fetch messages from Band room (with retry)
+    let contextData: any;
+    let fetchError: string | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const res = await fetch(
+        `${BAND_API_URL}/api/v1/agent/chats/${chatId}/context`,
+        { headers: { "X-API-Key": BAND_AGENT_API_KEY } }
+      );
+      if (res.ok) {
+        contextData = await res.json();
+        break;
+      }
       const errText = await res.text();
       if (errText.includes("deleted") || errText.includes("not found")) {
         await supabase.from("claims").update({ status: "denied", resolution_reasoning: "Band room no longer available" }).eq("room_id", chatId);
         return NextResponse.json({ resolved: false, reason: "Room deleted" });
       }
-      return NextResponse.json({ error: "Failed to fetch messages" }, { status: 502 });
+      fetchError = errText;
+      if (res.status === 429 || res.status >= 500) {
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+        continue;
+      }
+      break;
     }
-    const json = await res.json();
-    const messages: { content: string; sender_name: string; message_type: string }[] = json.data || [];
+    if (!contextData) {
+      return NextResponse.json({ error: `Failed to fetch messages: ${fetchError}` }, { status: 502 });
+    }
+    const messages: { content: string; sender_name: string; message_type: string }[] = contextData.data || [];
 
     // 2. Parse decision
     const resolution = parseResolution(messages);
     if (!resolution) {
-      // Check if delivery failed — re-send with backoff if needed
-      const retryResult = await retryFailedDelivery(chatId, json.data || []);
+      const retryResult = await retryFailedDelivery(chatId, contextData.data || []);
       return NextResponse.json({ resolved: false, reason: retryResult || "No final decision found yet" });
+    }
+
+    // If still investigating (escalated but next agent hasn't decided), check for stalled agents
+    if (resolution.status === "investigating") {
+      const retryResult = await retryFailedDelivery(chatId, contextData.data || []);
+      // Update intermediate state (risk_level, verdict so far)
+      await supabase.from("claims").update({
+        risk_level: resolution.riskLevel,
+        verdict: resolution.verdict,
+        fraud_score: resolution.fraudScore,
+        resolution_reasoning: resolution.reasoning,
+      }).eq("room_id", chatId);
+      return NextResponse.json({ resolved: false, reason: retryResult || "Awaiting next agent response" });
     }
 
     // 3. Get claim and check if already resolved
@@ -76,7 +115,8 @@ export async function POST(
     }
 
     const alreadyResolved = claim.resolved_at !== null;
-    const isFinalDecision = resolution.status !== "investigating";
+    // At this point, resolution.status is always final (approved/partial_approved/denied)
+    // because "investigating" is handled above with early return
 
     // 4. Update claim in DB
     const { error: updateError } = await supabase
@@ -88,7 +128,7 @@ export async function POST(
         settlement_amount: resolution.settlementAmount,
         fraud_score: resolution.fraudScore,
         resolution_reasoning: resolution.reasoning,
-        resolved_at: isFinalDecision ? new Date().toISOString() : null,
+        resolved_at: new Date().toISOString(),
       })
       .eq("room_id", chatId);
 
@@ -96,12 +136,12 @@ export async function POST(
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    // 5. If final decision AND not already resolved → execute resolution
-    if (isFinalDecision && !alreadyResolved) {
+    // 5. If not already resolved → execute resolution
+    if (!alreadyResolved) {
       await executeResolution(chatId, claim.claim_id, claim.policyholder, claim.user_id, resolution);
     }
 
-    return NextResponse.json({ resolved: isFinalDecision, resolution });
+    return NextResponse.json({ resolved: true, resolution });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -273,10 +313,10 @@ const RETRY_BACKOFF_MS = [30_000, 60_000, 120_000, 300_000, 600_000];
  * was mentioned but hasn't sent a visible message, we remind them.
  */
 async function retryFailedDelivery(chatId: string, rawMessages: any[]): Promise<string | null> {
-  // Get claim retry state
+  // Get claim retry state + context for retry message
   const { data: claim } = await supabase
     .from("claims")
-    .select("retry_count, last_retry_at, created_at")
+    .select("retry_count, last_retry_at, created_at, claim_id, policyholder, claim_amount, risk_level, incident_type, description")
     .eq("room_id", chatId)
     .single();
 
@@ -295,6 +335,10 @@ async function retryFailedDelivery(chatId: string, rawMessages: any[]): Promise<
   if (timeSinceLastAction < backoffMs) {
     return `Waiting for backoff (retry ${retryCount + 1}/${MAX_RETRIES})`;
   }
+  // Guard against concurrent resolve calls (< 10s since last retry = skip)
+  if (lastRetry && Date.now() - lastRetry < 10_000) {
+    return `Retry recently sent, skipping`;
+  }
 
   // Case 1: Explicit delivery failure
   const failedMsg = rawMessages.find((m: any) => {
@@ -306,45 +350,140 @@ async function retryFailedDelivery(chatId: string, rawMessages: any[]): Promise<
     const failedAgentId = Object.entries(failedMsg.metadata?.delivery_status || {})
       .find(([, ds]: [string, any]) => ds.status === "failed")?.[0];
     if (failedAgentId) {
-      return await sendRetry(chatId, failedAgentId, retryCount, "delivery failed");
+      return await sendRetry(chatId, failedAgentId, retryCount, "delivery failed", claim, rawMessages);
     }
   }
 
   // Case 2: Agent mentioned but never responded
-  // Find all agents that were mentioned in messages
   const mentionedAgents = new Set<string>();
   const respondedAgents = new Set<string>();
 
   for (const msg of rawMessages) {
-    // Collect who was mentioned
     const mentions: { id: string }[] = msg.metadata?.mentions || [];
     for (const m of mentions) {
       if (m.id !== process.env.GATEWAY_ID) mentionedAgents.add(m.id);
     }
-    // Collect who responded (non-Gateway senders)
     if (msg.sender_name !== "Gateway" && msg.message_type === "text") {
       respondedAgents.add(msg.sender_id);
     }
   }
 
-  // Find agents that were mentioned but haven't responded
   const stalledAgent = [...mentionedAgents].find(id => !respondedAgents.has(id));
   if (stalledAgent) {
-    return await sendRetry(chatId, stalledAgent, retryCount, "no response");
+    return await sendRetry(chatId, stalledAgent, retryCount, "no response", claim, rawMessages);
+  }
+
+  // Case 3: Reviewer escalated but next agent was never added to room
+  // (add_participant_service failed on Band platform side)
+  const hasReviewerEscalation = rawMessages.some(m =>
+    /reviewer/i.test(m.sender_name) && m.message_type === "text" &&
+    (/ESCALATE/i.test(m.content) || /MEDIUM|HIGH/i.test(m.content))
+  );
+  const hasInvestigatorResponse = rawMessages.some(m =>
+    /investigator/i.test(m.sender_name) && m.message_type === "text"
+  );
+  const hasInvestigatorVerdict = rawMessages.some(m =>
+    /investigator/i.test(m.sender_name) && m.message_type === "text" &&
+    /(SUSPICIOUS|LIKELY_FRAUDULENT)/i.test(m.content)
+  );
+  const hasAdjusterResponse = rawMessages.some(m =>
+    /adjuster/i.test(m.sender_name) && m.message_type === "text"
+  );
+
+  const INVESTIGATOR_ID = process.env.INVESTIGATOR_ID;
+  const ADJUSTER_ID = process.env.ADJUSTER_ID;
+
+  if (hasReviewerEscalation && !hasInvestigatorResponse && INVESTIGATOR_ID) {
+    // Investigator never joined — manually add and send claim
+    try {
+      await bandFetch(`/chats/${chatId}/participants`, {
+        method: "POST",
+        body: JSON.stringify({ participant: { participant_id: INVESTIGATOR_ID } }),
+      });
+    } catch { /* may already be participant */ }
+    return await sendRetry(chatId, INVESTIGATOR_ID, retryCount, "agent never joined room", claim, rawMessages);
+  }
+
+  if (hasInvestigatorVerdict && !hasAdjusterResponse && ADJUSTER_ID) {
+    // Adjuster never joined — manually add and send claim
+    try {
+      await bandFetch(`/chats/${chatId}/participants`, {
+        method: "POST",
+        body: JSON.stringify({ participant: { participant_id: ADJUSTER_ID } }),
+      });
+    } catch { /* may already be participant */ }
+    return await sendRetry(chatId, ADJUSTER_ID, retryCount, "agent never joined room", claim, rawMessages);
   }
 
   return null;
 }
 
-async function sendRetry(chatId: string, agentId: string, retryCount: number, reason: string): Promise<string> {
+const AGENT_ID_TO_ROLE: Record<string, string> = {
+  [process.env.CLAIM_REVIEWER_ID || ""]: "reviewer",
+  [process.env.INVESTIGATOR_ID || ""]: "investigator",
+  [process.env.ADJUSTER_ID || ""]: "adjuster",
+  [process.env.RESOLVER_ID || ""]: "resolver",
+};
+
+function buildRetryMessage(agentId: string, claim: any, rawMessages: any[]): string {
+  const role = AGENT_ID_TO_ROLE[agentId] || "agent";
+
+  // Extract the last substantive message from other agents as context
+  const lastAgentMsg = [...rawMessages]
+    .filter(m => m.message_type === "text" && m.sender_name !== "Gateway")
+    .pop();
+
+  const claimContext = [
+    `Claim ${claim.claim_id} | ${claim.policyholder} | $${(claim.claim_amount || 0).toLocaleString()}`,
+    `Risk: ${claim.risk_level || "UNKNOWN"} | Incident: ${claim.incident_type || "N/A"}`,
+    claim.description ? `Description: ${claim.description.slice(0, 200)}` : "",
+  ].filter(Boolean).join("\n");
+
+  if (role === "reviewer") {
+    return [
+      `@nodesemesta/reviewer You have not responded yet. Please triage this claim NOW.`,
+      ``,
+      claimContext,
+      ``,
+      `Provide your REVIEWER_REPORT with risk_level, decision (AUTO_APPROVE or ESCALATE_INVESTIGATION), and reasoning. Use send_direct_message_service and mention @nodesemesta/gateway.`,
+    ].join("\n");
+  }
+
+  if (role === "investigator") {
+    const reviewerReport = rawMessages.find(m => /reviewer/i.test(m.sender_name) && m.message_type === "text")?.content?.slice(0, 300) || "";
+    return [
+      `@nodesemesta/investigator You have not responded yet. Please analyze this claim for fraud NOW.`,
+      ``,
+      claimContext,
+      reviewerReport ? `\nReviewer's assessment:\n${reviewerReport}` : "",
+      ``,
+      `Provide your INVESTIGATOR_REPORT with fraud_score (1-10) and verdict (CLEAN/SUSPICIOUS/LIKELY_FRAUDULENT). Use send_direct_message_service and mention @nodesemesta/gateway.`,
+    ].join("\n");
+  }
+
+  if (role === "adjuster") {
+    const investigatorReport = rawMessages.find(m => /investigator/i.test(m.sender_name) && m.message_type === "text")?.content?.slice(0, 300) || "";
+    return [
+      `@nodesemesta/adjuster You have not responded yet. Please issue your final decision NOW.`,
+      ``,
+      claimContext,
+      investigatorReport ? `\nInvestigator's findings:\n${investigatorReport}` : "",
+      ``,
+      `Provide your ADJUSTER_DECISION with decision (APPROVED/PARTIAL_APPROVED/DENIED), settlement_amount, and reasoning. Use send_direct_message_service and mention @nodesemesta/gateway.`,
+    ].join("\n");
+  }
+
+  return `You have not responded. Please review the claim above and provide your analysis/decision now.\n\n${claimContext}`;
+}
+
+async function sendRetry(chatId: string, agentId: string, retryCount: number, reason: string, claim: any, rawMessages: any[]): Promise<string> {
   try {
+    const content = buildRetryMessage(agentId, claim, rawMessages);
+
     await bandFetch(`/chats/${chatId}/messages`, {
       method: "POST",
       body: JSON.stringify({
-        message: {
-          content: `@nodesemesta/gateway Reminder: please review the conversation above and provide your analysis/decision now.`,
-          mentions: [{ id: agentId }],
-        },
+        message: { content, mentions: [{ id: agentId }] },
       }),
     });
 
@@ -353,9 +492,8 @@ async function sendRetry(chatId: string, agentId: string, retryCount: number, re
       last_retry_at: new Date().toISOString(),
     }).eq("room_id", chatId);
 
-    return `Retry ${retryCount + 1}/${MAX_RETRIES} sent (reason: ${reason})`;
+    return `Retry ${retryCount + 1}/${MAX_RETRIES} sent to ${AGENT_ID_TO_ROLE[agentId] || agentId} (reason: ${reason})`;
   } catch (err: any) {
-    // If room is deleted or gone, mark claim as failed — no point retrying
     if (err.message?.includes("deleted") || err.message?.includes("not found")) {
       await supabase.from("claims").update({
         status: "denied",

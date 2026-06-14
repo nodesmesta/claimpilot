@@ -171,6 +171,15 @@ export default function LiveInvestigationPage() {
     return () => clearInterval(retryInterval);
   }, [chatId, resolved]);
 
+  // Background stalled-claims sweep (every 60s, independent of this claim)
+  useEffect(() => {
+    if (resolved) return;
+    const sweepInterval = setInterval(() => {
+      fetch("/api/claims/retry-stalled").catch(() => null);
+    }, 60000);
+    return () => clearInterval(sweepInterval);
+  }, [resolved]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);

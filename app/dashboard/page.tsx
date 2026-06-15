@@ -11,6 +11,8 @@ import {
   DollarSign,
   ArrowRight,
   TrendingUp,
+  TrendingDown,
+  Minus,
   Shield,
   Zap,
   XCircle,
@@ -42,7 +44,7 @@ function DonutChart({
     return (
       <div className="flex items-center justify-center w-32 h-32">
         <svg viewBox="0 0 36 36" className="w-full h-full">
-          <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f4f4f5" strokeWidth="3" />
+          <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f4f4f5" strokeWidth="2.5" />
         </svg>
       </div>
     );
@@ -63,7 +65,7 @@ function DonutChart({
   return (
     <div className="relative w-32 h-32 flex items-center justify-center">
       <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f4f4f5" strokeWidth="3" />
+        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f4f4f5" strokeWidth="2.5" />
         {arcs.map((arc, i) => (
           <circle
             key={i}
@@ -72,16 +74,17 @@ function DonutChart({
             r="15.9"
             fill="none"
             stroke={arc.color}
-            strokeWidth="3"
+            strokeWidth="3.2"
             strokeDasharray={`${arc.dash} ${arc.gap}`}
             strokeDashoffset={-arc.offset}
-            className="transition-all duration-700"
+            strokeLinecap="round"
+            className="transition-all duration-700 drop-shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
           />
         ))}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-xl font-bold text-zinc-900">{total}</span>
-        <span className="text-[10px] text-zinc-400 font-medium">TOTAL</span>
+        <span className="text-2xl font-extrabold text-zinc-900 tracking-tight">{total}</span>
+        <span className="text-[9px] text-zinc-400 font-bold tracking-wider uppercase">TOTAL</span>
       </div>
     </div>
   );
@@ -91,21 +94,25 @@ function DonutChart({
 function MiniBarChart({ data }: { data: { label: string; value: number; color?: string }[] }) {
   const max = Math.max(...data.map((d) => d.value), 1);
   return (
-    <div className="flex items-end gap-1.5 h-16">
+    <div className="flex items-end gap-2 h-16">
       {data.map((d, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1">
-          <div className="w-full flex items-end" style={{ height: "48px" }}>
+        <div key={i} className="flex-1 flex flex-col items-center gap-1.5 group">
+          <div className="w-full flex items-end relative" style={{ height: "48px" }}>
+            {/* Tooltip on hover */}
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-zinc-900 text-white text-[10px] font-semibold py-0.5 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-md z-10 border border-zinc-700/50">
+              {d.value} {d.value === 1 ? "claim" : "claims"}
+            </div>
             <div
-              className="w-full rounded-t-sm transition-all duration-700"
+              className="w-full rounded-t-md transition-all duration-500 hover:brightness-105"
               style={{
                 height: `${(d.value / max) * 48}px`,
-                minHeight: d.value > 0 ? 3 : 0,
-                backgroundColor: d.color || "#6366f1",
-                opacity: d.value === 0 ? 0.15 : 1,
+                minHeight: d.value > 0 ? 4 : 0,
+                background: d.value > 0 ? `linear-gradient(to top, ${d.color || "#6366f1"}dd, ${d.color || "#6366f1"})` : "#e4e4e7",
+                opacity: d.value === 0 ? 0.2 : 1,
               }}
             />
           </div>
-          <span className="text-[9px] text-zinc-400 font-medium">{d.label}</span>
+          <span className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider">{d.label}</span>
         </div>
       ))}
     </div>
@@ -117,21 +124,38 @@ function Sparkline({ values, color = "#6366f1" }: { values: number[]; color?: st
   const max = Math.max(...values, 1);
   const width = 80;
   const height = 28;
+  
+  if (!values || values.length < 2) return null;
+  
   const points = values.map((v, i) => {
     const x = (i / (values.length - 1)) * width;
-    const y = height - (v / max) * height;
-    return `${x},${y}`;
-  }).join(" ");
+    const y = height - (v / max) * (height - 4) - 2; // pad 2px top/bottom
+    return { x, y };
+  });
+  
+  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+  const areaPath = `${linePath} L ${width} ${height} L 0 ${height} Z`;
+  const gradId = `sparkline-grad-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
     <svg width={width} height={height} className="overflow-visible">
-      <polyline
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+          <stop offset="100%" stopColor={color} stopOpacity={0.0} />
+        </linearGradient>
+      </defs>
+      <path
+        d={areaPath}
+        fill={`url(#${gradId})`}
+      />
+      <path
+        d={linePath}
         fill="none"
         stroke={color}
-        strokeWidth="1.5"
+        strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
-        points={points}
       />
     </svg>
   );
@@ -203,10 +227,10 @@ export default function DashboardPage() {
 
   const getRiskBadge = (risk: string | null) => {
     switch (risk) {
-      case "LOW": return "bg-green-100 text-green-700";
-      case "MEDIUM": return "bg-yellow-100 text-yellow-700";
-      case "HIGH": return "bg-red-100 text-red-700";
-      default: return "bg-zinc-100 text-zinc-500";
+      case "LOW": return "bg-green-50/80 text-green-700 border border-green-200/60";
+      case "MEDIUM": return "bg-amber-50/80 text-amber-700 border border-amber-200/60";
+      case "HIGH": return "bg-red-50/80 text-red-700 border border-red-200/60";
+      default: return "bg-zinc-50/80 text-zinc-500 border border-zinc-200/60";
     }
   };
 
@@ -272,9 +296,23 @@ export default function DashboardPage() {
             <div className="p-2 rounded-xl bg-green-100">
               <TrendingUp className="w-5 h-5 text-green-600" />
             </div>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${stats.approvalRate >= 70 ? "bg-green-50 text-green-700" : stats.approvalRate >= 40 ? "bg-yellow-50 text-yellow-700" : "bg-red-50 text-red-700"}`}>
-              {stats.resolved > 0 ? (stats.approvalRate >= 70 ? "↑ Good" : stats.approvalRate >= 40 ? "~ Fair" : "↓ Low") : "—"}
-            </span>
+            {stats.resolved > 0 ? (
+              stats.approvalRate >= 70 ? (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-green-50/80 text-green-700 border border-green-200/60 shadow-sm">
+                  <TrendingUp className="w-3.5 h-3.5" /> Good
+                </span>
+              ) : stats.approvalRate >= 40 ? (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-50/80 text-amber-700 border border-amber-200/60 shadow-sm">
+                  <Minus className="w-3.5 h-3.5" /> Fair
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-red-50/80 text-red-700 border border-red-200/60 shadow-sm">
+                  <TrendingDown className="w-3.5 h-3.5" /> Low
+                </span>
+              )
+            ) : (
+              <span className="text-xs text-zinc-400 font-medium">—</span>
+            )}
           </div>
           <p className="text-2xl font-bold text-zinc-900">{stats.approvalRate}%</p>
           <p className="text-xs text-zinc-500 mt-0.5">Approval Rate</p>
@@ -300,8 +338,12 @@ export default function DashboardPage() {
               <AlertTriangle className="w-5 h-5 text-red-600" />
             </div>
             {stats.highRisk > 0 && (
-              <span className="text-xs text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full font-medium animate-pulse">
-                ● Active
+              <span className="inline-flex items-center gap-1.5 text-xs text-red-600 bg-red-50/80 border border-red-200/60 px-2.5 py-0.5 rounded-full font-semibold">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+                Active
               </span>
             )}
           </div>
@@ -360,9 +402,9 @@ export default function DashboardPage() {
           </h3>
           <div className="space-y-3">
             {[
-              { label: "LOW", value: stats.lowRisk, color: "bg-green-500", textColor: "text-green-700", bgColor: "bg-green-50" },
-              { label: "MEDIUM", value: stats.mediumRisk, color: "bg-yellow-500", textColor: "text-yellow-700", bgColor: "bg-yellow-50" },
-              { label: "HIGH", value: stats.highRisk, color: "bg-red-500", textColor: "text-red-700", bgColor: "bg-red-50" },
+              { label: "LOW", value: stats.lowRisk, color: "bg-green-500", textColor: "text-green-700", bgColor: "bg-green-50/80 border border-green-200/60" },
+              { label: "MEDIUM", value: stats.mediumRisk, color: "bg-yellow-500", textColor: "text-yellow-700", bgColor: "bg-yellow-50/80 border border-yellow-200/60" },
+              { label: "HIGH", value: stats.highRisk, color: "bg-red-500", textColor: "text-red-700", bgColor: "bg-red-50/80 border border-red-200/60" },
             ].map((r) => {
               const pct = stats.total > 0 ? Math.round((r.value / stats.total) * 100) : 0;
               return (
@@ -371,10 +413,13 @@ export default function DashboardPage() {
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.bgColor} ${r.textColor}`}>{r.label}</span>
                     <span className="text-xs text-zinc-500">{r.value} claims ({pct}%)</span>
                   </div>
-                  <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
+                  <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden shadow-inner">
                     <div
-                      className={`h-full rounded-full transition-all duration-700 ${r.color}`}
-                      style={{ width: `${pct}%` }}
+                      className="h-full rounded-full transition-all duration-700 bg-gradient-to-r"
+                      style={{
+                        width: `${pct}%`,
+                        background: r.label === "LOW" ? "linear-gradient(to right, #4ade80, #22c55e)" : r.label === "MEDIUM" ? "linear-gradient(to right, #facc15, #eab308)" : "linear-gradient(to right, #f87171, #ef4444)"
+                      }}
                     />
                   </div>
                 </div>

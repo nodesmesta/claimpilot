@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Upload, FileText, RefreshCw, Calendar, Shield, CreditCard, Activity, Car, Trash2, ShieldAlert } from "lucide-react";
+import { Upload, FileText, RefreshCw, Calendar, Shield, CreditCard, Activity, Car, Trash2, ShieldAlert, CheckCircle, XCircle } from "lucide-react";
 
 interface Asset {
   id: string;
@@ -30,7 +30,7 @@ export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [uploadLogs, setUploadLogs] = useState<{ text: string; type: "success" | "error" }[]>([]);
 
   const fetchAssets = () => {
     setLoading(true);
@@ -43,8 +43,8 @@ export default function AssetsPage() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setUploading(true);
-    setMsg("");
-    const messages: string[] = [];
+    setUploadLogs([]);
+    const logs: { text: string; type: "success" | "error" }[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const form = new FormData();
@@ -53,13 +53,19 @@ export default function AssetsPage() {
         const res = await fetch("/api/assets", { method: "POST", body: form });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
-        messages.push(`✓ Asset uploaded: ${data.asset.policyholder} — ${data.asset.policy_number}`);
+        logs.push({
+          text: `Asset uploaded successfully: ${data.asset.policyholder} — ${data.asset.policy_number}`,
+          type: "success",
+        });
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Upload failed";
-        messages.push(`✗ ${msg}`);
+        const errMsg = err instanceof Error ? err.message : "Upload failed";
+        logs.push({
+          text: errMsg,
+          type: "error",
+        });
       }
     }
-    setMsg(messages.join("\n"));
+    setUploadLogs(logs);
     setUploading(false);
     e.target.value = "";
     fetchAssets();
@@ -84,9 +90,25 @@ export default function AssetsPage() {
         </div>
       </div>
 
-      {msg && (
-        <div className={`p-4 rounded-xl text-sm whitespace-pre-line ${msg.startsWith("✓") ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
-          {msg}
+      {uploadLogs.length > 0 && (
+        <div className="space-y-2">
+          {uploadLogs.map((log, index) => (
+            <div
+              key={index}
+              className={`p-4 rounded-xl text-sm flex items-center gap-2.5 border ${
+                log.type === "success"
+                  ? "bg-green-50/80 text-green-700 border-green-200/60 shadow-sm"
+                  : "bg-red-50/80 text-red-700 border-red-200/60 shadow-sm"
+              }`}
+            >
+              {log.type === "success" ? (
+                <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+              ) : (
+                <XCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+              )}
+              <span className="font-medium">{log.text}</span>
+            </div>
+          ))}
         </div>
       )}
 

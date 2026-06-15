@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { Bot, Users, Clock, FileText, Shield, CreditCard, Mail, Info, Calendar, MapPin, Activity, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Bot, Users, Clock, FileText, Shield, CreditCard, Mail, Info, Calendar, MapPin, Activity, AlertTriangle, CheckCircle, XCircle, Search } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -321,7 +321,19 @@ export default function LiveInvestigationPage() {
           <div className="px-6 py-4 border-b border-zinc-200">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-zinc-900">Live Investigation Room</h2>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${resolved ? "bg-green-50 text-green-700 border-green-200" : "bg-yellow-50 text-yellow-700 border-yellow-200"}`}>{resolved ? "✓ RESOLVED" : "● LIVE"}</span>
+              {resolved ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-50/80 text-green-700 border border-green-200/60 shadow-sm">
+                  <CheckCircle className="w-3.5 h-3.5" /> RESOLVED
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50/80 text-blue-700 border border-blue-200/60 shadow-sm">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                  </span>
+                  LIVE
+                </span>
+              )}
             </div>
             <p className="text-xs text-zinc-500 mt-1">Room: {chatId}</p>
           </div>
@@ -422,7 +434,13 @@ export default function LiveInvestigationPage() {
                             <Bot className="w-3.5 h-3.5 text-white" />
                           </div>
                           <span className="flex-1 text-sm text-zinc-700">{agent}</span>
-                          <span className="text-xs text-green-600 font-medium">● Joined</span>
+                          <span className="inline-flex items-center gap-1.5 text-xs text-green-600 font-semibold bg-green-50/80 border border-green-200/60 px-2 py-0.5 rounded-full shadow-sm">
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                            </span>
+                            Joined
+                          </span>
                         </div>
                       );
                     })}
@@ -435,13 +453,24 @@ export default function LiveInvestigationPage() {
                   </h3>
                   <div className="space-y-1.5 text-xs text-zinc-500">
                     <p>Total messages: <span className="font-semibold text-zinc-800">{messages.length}</span></p>
-                    <p>Connection: <span className="text-green-600 font-medium">● Active (Polling 3s)</span></p>
+                    <p className="flex items-center gap-1.5">
+                      Connection:{" "}
+                      <span className="inline-flex items-center gap-1.5 text-green-600 font-medium">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                        Active (Polling 3s)
+                      </span>
+                    </p>
                     {claimDetail?.retry_count && claimDetail.retry_count > 0 ? (
-                      <div className="mt-2 p-2 bg-yellow-50 border border-yellow-100 rounded-lg text-yellow-800">
-                        <p className="font-semibold">⚠️ Agent Stalled Recovery Triggered</p>
-                        <p>Retries: {claimDetail.retry_count}/5</p>
+                      <div className="mt-2 p-3 bg-amber-50/80 border border-amber-200/60 rounded-xl text-amber-800 space-y-1">
+                        <p className="font-semibold flex items-center gap-1.5">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" /> Agent Stalled Recovery Triggered
+                        </p>
+                        <p className="text-[11px] text-amber-700">Retries: {claimDetail.retry_count}/5</p>
                         {claimDetail.last_retry_at && (
-                          <p>Last retry: {new Date(claimDetail.last_retry_at).toLocaleTimeString()}</p>
+                          <p className="text-[11px] text-amber-600">Last retry: {new Date(claimDetail.last_retry_at).toLocaleTimeString()}</p>
                         )}
                       </div>
                     ) : null}
@@ -551,11 +580,24 @@ export default function LiveInvestigationPage() {
                         style={{ width: `${claimDetail.fraud_score * 10}%` }}
                       />
                     </div>
-                    <p className="text-[10px] text-zinc-400 mt-2">
-                      {claimDetail.fraud_score >= 7 ? "⚠️ High probability of fraud, adjust with caution" :
-                       claimDetail.fraud_score >= 4 ? "🔍 Suspicious indicators, escalated to Adjuster" :
-                       "✓ Clean parameters, recommended for fast-track approval"}
-                    </p>
+                    <div className="text-[11px] text-zinc-500 mt-3">
+                      {claimDetail.fraud_score >= 7 ? (
+                        <span className="flex items-start gap-1.5">
+                          <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                          <span>High probability of fraud, adjust with caution</span>
+                        </span>
+                      ) : claimDetail.fraud_score >= 4 ? (
+                        <span className="flex items-start gap-1.5">
+                          <Search className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                          <span>Suspicious indicators, escalated to Adjuster</span>
+                        </span>
+                      ) : (
+                        <span className="flex items-start gap-1.5">
+                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          <span>Clean parameters, recommended for fast-track approval</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
 

@@ -75,6 +75,11 @@ export default function AssetsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-xs text-zinc-400 font-medium">Dashboard</span>
+            <span className="text-xs text-zinc-300">/</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-zinc-900 text-white text-xs font-semibold tracking-wide">Assets</span>
+          </div>
           <h1 className="text-2xl font-bold text-zinc-900">Assets</h1>
           <p className="text-zinc-500 mt-1">Your insured assets and policy declarations</p>
         </div>

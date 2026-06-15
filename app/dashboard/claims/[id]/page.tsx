@@ -25,11 +25,26 @@ const agentStyle: Record<string, { bg: string; border: string; dot: string }> = 
   "Fraud Investigator": { bg: "bg-amber-50",   border: "border-amber-200",  dot: "bg-amber-500" },
   "Adjuster":           { bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500" },
   "Senior Adjuster":    { bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500" },
-  "resolver":           { bg: "bg-purple-50",  border: "border-purple-200", dot: "bg-purple-500" },
   "Resolver":           { bg: "bg-purple-50",  border: "border-purple-200", dot: "bg-purple-500" },
 };
 
 function getStyle(name: string) {
+  const lowercaseName = (name || "").toLowerCase();
+  if (lowercaseName.includes("gateway")) {
+    return agentStyle["Gateway"];
+  }
+  if (lowercaseName.includes("reviewer")) {
+    return agentStyle["Reviewer"];
+  }
+  if (lowercaseName.includes("investigator")) {
+    return agentStyle["Investigator"];
+  }
+  if (lowercaseName.includes("adjuster")) {
+    return agentStyle["Adjuster"];
+  }
+  if (lowercaseName.includes("resolver")) {
+    return agentStyle["Resolver"];
+  }
   return agentStyle[name] || { bg: "bg-zinc-50", border: "border-zinc-200", dot: "bg-zinc-400" };
 }
 

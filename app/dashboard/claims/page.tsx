@@ -123,7 +123,7 @@ export default function ClaimsPage() {
               </div>
 
               {/* Amount */}
-              <div className="flex items-baseline gap-2 mb-4">
+              <div className="flex items-baseline gap-2 mb-2">
                 <span className="text-2xl font-bold text-zinc-900">
                   ${(claim.claim_amount || 0).toLocaleString()}
                 </span>
@@ -132,6 +132,11 @@ export default function ClaimsPage() {
                     → <span className="font-medium text-green-600">${claim.settlement_amount.toLocaleString()}</span> settled
                   </span>
                 )}
+              </div>
+
+              {/* Incident Details */}
+              <div className="text-xs text-zinc-500 mb-4 flex items-center gap-1.5">
+                <span className="px-2 py-0.5 rounded bg-zinc-100/80 border border-zinc-200/50 font-medium text-zinc-700">{claim.incident_type || "General Claim"}</span>
               </div>
 
               {/* Status Cards Row */}

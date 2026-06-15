@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Upload, FileText, RefreshCw } from "lucide-react";
+import { Upload, FileText, RefreshCw, Calendar, Shield, CreditCard, Activity, Car, Trash2, ShieldAlert } from "lucide-react";
 
 interface Asset {
   id: string;
@@ -9,9 +9,20 @@ interface Asset {
   policy_number: string;
   policy_type: string;
   vehicle_description: string;
+  vin?: string;
+  license_plate?: string;
   estimated_value: number;
   deductible: number;
+  effective_date?: string;
+  expiration_date?: string;
+  premium?: string;
+  coverage_collision?: string;
+  coverage_comprehensive?: string;
+  coverage_liability?: string;
   payment_method: string;
+  billing_cycle?: string;
+  claims_history_total?: number;
+  claims_history_12mo?: number;
   created_at: string;
 }
 
@@ -79,48 +90,120 @@ export default function AssetsPage() {
         </div>
       )}
 
-      <div className="rounded-2xl bg-white/60 backdrop-blur-sm border border-zinc-200 shadow-sm overflow-hidden">
+      <div className="space-y-4">
         {loading && assets.length === 0 ? (
-          <div className="p-12 text-center text-zinc-500">
+          <div className="p-12 text-center text-zinc-500 rounded-2xl bg-white/60 border border-zinc-200">
             <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
             Loading assets...
           </div>
         ) : assets.length === 0 ? (
-          <div className="p-12 text-center">
+          <div className="p-12 text-center rounded-2xl bg-white/60 border border-zinc-200">
             <FileText className="w-12 h-12 text-zinc-300 mx-auto mb-3" />
             <p className="text-zinc-500">No assets uploaded yet</p>
             <p className="text-sm text-zinc-400 mt-1">Upload a policy declaration PDF to get started</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-zinc-500 text-sm border-b border-zinc-100">
-                  <th className="px-6 py-4 font-medium">Policyholder</th>
-                  <th className="px-6 py-4 font-medium">Policy #</th>
-                  <th className="px-6 py-4 font-medium">Type</th>
-                  <th className="px-6 py-4 font-medium">Vehicle</th>
-                  <th className="px-6 py-4 font-medium">Value</th>
-                  <th className="px-6 py-4 font-medium">Payment</th>
-                  <th className="px-6 py-4 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {assets.map((a) => (
-                  <tr key={a.id} className="border-b border-zinc-100 hover:bg-zinc-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-zinc-900">{a.policyholder}</td>
-                    <td className="px-6 py-4 text-zinc-700 font-mono text-sm">{a.policy_number}</td>
-                    <td className="px-6 py-4 text-zinc-600 text-sm">{a.policy_type}</td>
-                    <td className="px-6 py-4 text-zinc-600 text-sm">{a.vehicle_description}</td>
-                    <td className="px-6 py-4 font-semibold text-zinc-900">${a.estimated_value?.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-zinc-500 text-sm">{a.payment_method}</td>
-                    <td className="px-6 py-4">
-                      <button onClick={async () => { await fetch(`/api/assets?id=${a.id}`, { method: "DELETE" }); fetchAssets(); }} className="text-red-500 hover:text-red-700 text-sm">Delete</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {assets.map((a) => (
+              <div key={a.id} className="p-6 rounded-2xl bg-white/60 backdrop-blur-sm border border-zinc-200 shadow-sm flex flex-col justify-between hover:border-blue-300 hover:shadow-lg transition-all duration-200 relative group">
+                
+                {/* Header */}
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="font-bold text-zinc-900 text-lg leading-tight">{a.policyholder}</h3>
+                      <p className="text-xs text-zinc-500 font-mono mt-0.5">Policy #: {a.policy_number}</p>
+                    </div>
+                    <button 
+                      onClick={async () => { await fetch(`/api/assets?id=${a.id}`, { method: "DELETE" }); fetchAssets(); }} 
+                      className="text-zinc-300 hover:text-red-600 transition p-1.5 rounded-lg hover:bg-red-50"
+                      title="Delete Asset"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Badges row */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200/50">
+                      {a.policy_type || "Auto Insurance"}
+                    </span>
+                    {a.effective_date && a.expiration_date && (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-150 text-zinc-700 border border-zinc-200/50 flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+                        Active: {a.effective_date} to {a.expiration_date}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Vehicle details */}
+                  <div className="p-4 rounded-xl bg-white border border-zinc-100 mb-4 space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <Car className="w-4 h-4 text-zinc-400" />
+                      <span className="font-semibold text-zinc-800 text-sm">{a.vehicle_description || "Insured Asset"}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs border-t border-zinc-100/50 pt-2.5">
+                      <div>
+                        <span className="text-zinc-400 block text-[10px]">VIN</span>
+                        <span className="font-mono text-zinc-700 font-medium">{a.vin || "—"}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-400 block text-[10px]">License Plate</span>
+                        <span className="font-semibold text-zinc-700">{a.license_plate || "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Financials & Coverages */}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="p-3 bg-zinc-50/50 border border-zinc-100 rounded-xl">
+                      <span className="text-zinc-400 block text-[10px]">Estimated Value</span>
+                      <span className="font-extrabold text-zinc-900 text-base">${a.estimated_value?.toLocaleString()}</span>
+                    </div>
+                    <div className="p-3 bg-zinc-50/50 border border-zinc-100 rounded-xl">
+                      <span className="text-zinc-400 block text-[10px]">Deductible Amount</span>
+                      <span className="font-bold text-red-600 text-base">${a.deductible?.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Coverage Limits */}
+                  <div className="space-y-2 mb-4">
+                    <h4 className="text-xs font-semibold text-zinc-800 flex items-center gap-1">
+                      <Shield className="w-3.5 h-3.5 text-zinc-400" /> Active Coverage Limits
+                    </h4>
+                    <div className="p-3 border border-zinc-100 rounded-xl bg-white space-y-1.5 text-xs text-zinc-600">
+                      <div className="flex justify-between">
+                        <span>Collision</span>
+                        <span className="font-medium text-zinc-800">{a.coverage_collision || "—"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Comprehensive</span>
+                        <span className="font-medium text-zinc-800">{a.coverage_comprehensive || "—"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Liability limit</span>
+                        <span className="font-medium text-zinc-800">{a.coverage_liability || "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer details */}
+                <div className="pt-4 border-t border-zinc-100 flex items-center justify-between text-xs mt-auto">
+                  <div className="flex items-center gap-2">
+                    <span className="text-zinc-400">Claims History:</span>
+                    <span className="font-semibold text-zinc-700 bg-zinc-100 px-2 py-0.5 rounded">
+                      Total: {a.claims_history_total ?? 0} (12mo: {a.claims_history_12mo ?? 0})
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-zinc-400 block text-[10px]">Premium ({a.billing_cycle || "Monthly"})</span>
+                    <span className="font-bold text-zinc-800">{a.premium || "—"}</span>
+                  </div>
+                </div>
+
+              </div>
+            ))}
           </div>
         )}
       </div>

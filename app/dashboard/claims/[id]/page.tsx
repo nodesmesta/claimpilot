@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { Bot, Users, Clock } from "lucide-react";
+import { Bot, Users, Clock, FileText, Shield, CreditCard, Mail, Info, Calendar, MapPin, Activity, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -132,15 +132,96 @@ function cleanContent(content: string, senderName: string, customAgentNames?: Re
   return cleaned;
 }
 
+interface ClaimDetail {
+  id: string;
+  claim_id: string;
+  room_id: string;
+  policyholder: string;
+  policy_type: string;
+  incident_type: string;
+  description: string;
+  claim_amount: number;
+  settlement_amount: number | null;
+  location: string;
+  incident_date: string;
+  filing_date: string;
+  witnesses: number;
+  photos_submitted: number;
+  prior_claims_12mo: number;
+  police_report: boolean;
+  medical_claim: boolean;
+  status: string;
+  risk_level: string | null;
+  verdict: string | null;
+  fraud_score: number | null;
+  resolution_reasoning: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  recruited_agents: string[] | null;
+  retry_count: number;
+  last_retry_at: string | null;
+  payment: {
+    amount: number;
+    method: string;
+    status: string;
+    created_at: string;
+  } | null;
+  notifications: {
+    id: string;
+    recipient_email: string;
+    type: string;
+    subject: string;
+    body: string;
+    status: string;
+    created_at: string;
+  }[];
+  asset: {
+    policyholder: string;
+    policy_number: string;
+    policy_type: string;
+    vehicle_description: string;
+    vin: string;
+    license_plate: string;
+    estimated_value: number;
+    deductible: number;
+    premium: string;
+    coverage_collision: string;
+    coverage_comprehensive: string;
+    coverage_liability: string;
+    payment_method: string;
+    billing_cycle: string;
+    claims_history_total: number;
+    claims_history_12mo: number;
+  } | null;
+}
+
 export default function LiveInvestigationPage() {
   const { id: chatId } = useParams<{ id: string }>();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [claimDetail, setClaimDetail] = useState<ClaimDetail | null>(null);
+  const [activeTab, setActiveTab] = useState<"room" | "info" | "audit" | "asset" | "logs">("room");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [newMsgIds, setNewMsgIds] = useState<Set<string>>(new Set());
   const [resolved, setResolved] = useState(false);
   const [customAgentNames, setCustomAgentNames] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const fetchClaimDetail = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/claims/${chatId}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.data) {
+        setClaimDetail(json.data);
+        if (json.data.status !== "investigating") {
+          setResolved(true);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching claim details:", err);
+    }
+  }, [chatId]);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -163,7 +244,12 @@ export default function LiveInvestigationPage() {
           // Try to resolve when new agent messages appear
           if (freshAgentMsgs.length > 0) {
             fetch(`/api/claims/${chatId}/resolve`, { method: "POST" })
-              .then(r => r?.json()).then(r => { if (r?.resolved) setResolved(true); }).catch(() => null);
+              .then(r => r?.json()).then(r => { 
+                if (r?.resolved) {
+                  setResolved(true);
+                  fetchClaimDetail();
+                }
+              }).catch(() => null);
           }
           return allMsgs.sort(
             (a, b) => new Date(a.inserted_at).getTime() - new Date(b.inserted_at).getTime()
@@ -174,22 +260,34 @@ export default function LiveInvestigationPage() {
     } finally {
       setLoading(false);
     }
-  }, [chatId]);
+  }, [chatId, fetchClaimDetail]);
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, resolved ? 10000 : 3000);
+    fetchClaimDetail();
+    const interval = setInterval(() => {
+      fetchMessages();
+      fetchClaimDetail();
+    }, resolved ? 10000 : 3000);
     return () => clearInterval(interval);
-  }, [fetchMessages, resolved]);
+  }, [fetchMessages, fetchClaimDetail, resolved]);
 
   // Periodic resolve check for retry-on-failure (every 30s if not resolved)
   useEffect(() => {
     if (resolved) return;
     const retryInterval = setInterval(() => {
-      fetch(`/api/claims/${chatId}/resolve`, { method: "POST" }).catch(() => null);
+      fetch(`/api/claims/${chatId}/resolve`, { method: "POST" })
+        .then(r => r?.json())
+        .then(r => {
+          if (r?.resolved) {
+            setResolved(true);
+            fetchClaimDetail();
+          }
+        })
+        .catch(() => null);
     }, 30000);
     return () => clearInterval(retryInterval);
-  }, [chatId, resolved]);
+  }, [chatId, resolved, fetchClaimDetail]);
 
   // Background stalled-claims sweep (every 60s, independent of this claim)
   useEffect(() => {
@@ -276,39 +374,339 @@ export default function LiveInvestigationPage() {
       {/* Sidebar */}
       <div className="space-y-4">
         <div className="rounded-2xl bg-white/60 backdrop-blur-sm border border-zinc-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-zinc-200">
-            <h3 className="font-semibold text-zinc-900 flex items-center gap-2">
-              <Users className="w-4 h-4" /> Participants
-            </h3>
-          </div>
-          <div className="p-6 space-y-3">
-            {participants.length === 0 && (
-              <p className="text-xs text-zinc-400">Waiting for agents to join...</p>
-            )}
-            {participants.map((agent) => {
-              const style = getStyle(agent);
+          {/* Tabs Navigation */}
+          <div className="flex border-b border-zinc-200 bg-zinc-50/50 p-1 gap-1">
+            {[
+              { id: "room", label: "Timeline", icon: Activity },
+              { id: "info", label: "Info Claim", icon: FileText },
+              { id: "audit", label: "Audit", icon: Shield },
+              { id: "asset", label: "Asset", icon: CreditCard },
+              { id: "logs", label: "Logs", icon: Mail },
+            ].map((t) => {
+              const Icon = t.icon;
+              const active = activeTab === t.id;
               return (
-                <div key={agent} className="flex items-center gap-3">
-                  <div className={`w-7 h-7 rounded-full ${style.dot} flex items-center justify-center`}>
-                    <Bot className="w-3.5 h-3.5 text-white" />
-                  </div>
-                  <span className="flex-1 text-sm text-zinc-700">{agent}</span>
-                  <span className="text-xs text-green-600 font-medium">● Joined</span>
-                </div>
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id as any)}
+                  className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] font-medium transition-all ${
+                    active
+                      ? "bg-white text-blue-600 shadow-sm border border-zinc-200/50"
+                      : "text-zinc-500 hover:text-zinc-800 hover:bg-white/40"
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 mb-1 ${active ? "text-blue-600" : "text-zinc-400"}`} />
+                  {t.label}
+                </button>
               );
             })}
           </div>
-        </div>
 
-        <div className="rounded-2xl bg-white/60 backdrop-blur-sm border border-zinc-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-zinc-200">
-            <h3 className="font-semibold text-zinc-900 flex items-center gap-2">
-              <Clock className="w-4 h-4" /> Status
-            </h3>
-          </div>
-          <div className="p-6 text-sm text-zinc-500">
-            <p>{messages.length} messages received</p>
-            <p className="mt-1">Polling every 3s</p>
+          {/* Tab Content */}
+          <div className="p-6">
+            {activeTab === "room" && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-semibold text-zinc-900 flex items-center gap-2 mb-4">
+                    <Users className="w-4 h-4 text-zinc-500" /> Active Participants
+                  </h3>
+                  <div className="space-y-3">
+                    {participants.length === 0 && (
+                      <p className="text-xs text-zinc-400">Waiting for agents to join...</p>
+                    )}
+                    {participants.map((agent) => {
+                      const style = getStyle(agent);
+                      return (
+                        <div key={agent} className="flex items-center gap-3">
+                          <div className={`w-7 h-7 rounded-full ${style.dot} flex items-center justify-center`}>
+                            <Bot className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <span className="flex-1 text-sm text-zinc-700">{agent}</span>
+                          <span className="text-xs text-green-600 font-medium">● Joined</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-zinc-100">
+                  <h3 className="font-semibold text-zinc-900 flex items-center gap-2 mb-3">
+                    <Clock className="w-4 h-4 text-zinc-500" /> Session Status
+                  </h3>
+                  <div className="space-y-1.5 text-xs text-zinc-500">
+                    <p>Total messages: <span className="font-semibold text-zinc-800">{messages.length}</span></p>
+                    <p>Connection: <span className="text-green-600 font-medium">● Active (Polling 3s)</span></p>
+                    {claimDetail?.retry_count && claimDetail.retry_count > 0 ? (
+                      <div className="mt-2 p-2 bg-yellow-50 border border-yellow-100 rounded-lg text-yellow-800">
+                        <p className="font-semibold">⚠️ Agent Stalled Recovery Triggered</p>
+                        <p>Retries: {claimDetail.retry_count}/5</p>
+                        {claimDetail.last_retry_at && (
+                          <p>Last retry: {new Date(claimDetail.last_retry_at).toLocaleTimeString()}</p>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "info" && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold text-zinc-950 text-sm">{claimDetail?.claim_id || "Loading..."}</h3>
+                  <p className="text-xs text-zinc-400">Submitted by: {claimDetail?.policyholder}</p>
+                </div>
+
+                <div className="space-y-2 text-xs text-zinc-600">
+                  <div className="flex justify-between py-1.5 border-b border-zinc-100">
+                    <span>Incident Type</span>
+                    <span className="font-medium text-zinc-900">{claimDetail?.incident_type || "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-zinc-100">
+                    <span>Location</span>
+                    <span className="font-medium text-zinc-900">{claimDetail?.location || "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-zinc-100">
+                    <span>Date of Incident</span>
+                    <span className="font-medium text-zinc-900">{claimDetail?.incident_date || "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-zinc-100">
+                    <span>Date of Filing</span>
+                    <span className="font-medium text-zinc-900">{claimDetail?.filing_date || "—"}</span>
+                  </div>
+                </div>
+
+                {claimDetail?.description && (
+                  <div className="p-3 bg-zinc-50 border border-zinc-150 rounded-xl">
+                    <h4 className="text-xs font-semibold text-zinc-800 mb-1">Claim Description</h4>
+                    <p className="text-xs text-zinc-600 leading-relaxed">{claimDetail.description}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 bg-zinc-50 border border-zinc-100 rounded-xl">
+                    <span className="text-zinc-500 block text-[10px]">Witnesses</span>
+                    <span className="font-bold text-zinc-800 text-sm">{claimDetail?.witnesses ?? 0}</span>
+                  </div>
+                  <div className="p-2.5 bg-zinc-50 border border-zinc-100 rounded-xl">
+                    <span className="text-zinc-500 block text-[10px]">Photos</span>
+                    <span className="font-bold text-zinc-800 text-sm">{claimDetail?.photos_submitted ?? 0}</span>
+                  </div>
+                  <div className="p-2.5 bg-zinc-50 border border-zinc-100 rounded-xl flex items-center justify-between col-span-2">
+                    <span className="text-zinc-500">Police Report Filed</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${claimDetail?.police_report ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                      {claimDetail?.police_report ? "Yes" : "No"}
+                    </span>
+                  </div>
+                  <div className="p-2.5 bg-zinc-50 border border-zinc-100 rounded-xl flex items-center justify-between col-span-2">
+                    <span className="text-zinc-500">Includes Medical Claim</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${claimDetail?.medical_claim ? "bg-amber-100 text-amber-700" : "bg-zinc-100 text-zinc-600"}`}>
+                      {claimDetail?.medical_claim ? "Yes" : "No"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "audit" && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl border border-zinc-200/60 bg-gradient-to-br from-zinc-50/50 to-white">
+                  <h4 className="text-xs font-semibold text-zinc-500 mb-2">Triage & Risk Profile</h4>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs text-zinc-700">Risk Level</span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                      claimDetail?.risk_level === "HIGH" ? "bg-red-100 text-red-700" :
+                      claimDetail?.risk_level === "MEDIUM" ? "bg-yellow-100 text-yellow-700" :
+                      "bg-green-100 text-green-700"
+                    }`}>
+                      {claimDetail?.risk_level || "LOW"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-zinc-700">Verdict Decision</span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                      claimDetail?.verdict === "DENIED" || claimDetail?.verdict === "LIKELY_FRAUDULENT" ? "bg-red-100 text-red-700" :
+                      claimDetail?.verdict === "PARTIAL_APPROVED" || claimDetail?.verdict === "SUSPICIOUS" ? "bg-amber-100 text-amber-700" :
+                      "bg-green-100 text-green-700"
+                    }`}>
+                      {claimDetail?.verdict || "PENDING"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Fraud Score Bar */}
+                {claimDetail?.fraud_score !== null && claimDetail?.fraud_score !== undefined && (
+                  <div className="p-4 rounded-xl border border-zinc-200/60 bg-white shadow-sm">
+                    <div className="flex justify-between items-baseline mb-2">
+                      <h4 className="text-xs font-semibold text-zinc-800">Fraud Score</h4>
+                      <span className="text-sm font-bold text-zinc-950">{claimDetail.fraud_score} <span className="text-xs text-zinc-400 font-normal">/ 10</span></span>
+                    </div>
+                    <div className="w-full bg-zinc-100 h-2 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          claimDetail.fraud_score >= 7 ? "bg-red-500" :
+                          claimDetail.fraud_score >= 4 ? "bg-amber-500" :
+                          "bg-green-500"
+                        }`}
+                        style={{ width: `${claimDetail.fraud_score * 10}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-zinc-400 mt-2">
+                      {claimDetail.fraud_score >= 7 ? "⚠️ High probability of fraud, adjust with caution" :
+                       claimDetail.fraud_score >= 4 ? "🔍 Suspicious indicators, escalated to Adjuster" :
+                       "✓ Clean parameters, recommended for fast-track approval"}
+                    </p>
+                  </div>
+                )}
+
+                {claimDetail?.resolution_reasoning && (
+                  <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                    <h4 className="text-xs font-semibold text-blue-900 mb-1 flex items-center gap-1">
+                      <Shield className="w-3.5 h-3.5 text-blue-600" /> Resolution Auditing
+                    </h4>
+                    <p className="text-xs text-blue-800 leading-relaxed italic">
+                      "{claimDetail.resolution_reasoning.replace(/^(ADJUSTER_DECISION|REVIEWER_REPORT|INVESTIGATOR_REPORT)/i, '').trim().slice(0, 300)}"
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "asset" && (
+              <div className="space-y-4">
+                {claimDetail?.asset ? (
+                  <>
+                    <div>
+                      <h3 className="font-semibold text-zinc-900 text-sm">{claimDetail.asset.vehicle_description}</h3>
+                      <p className="text-xs text-zinc-500">Policyholder: {claimDetail.asset.policyholder}</p>
+                    </div>
+
+                    <div className="p-3 bg-zinc-50 border border-zinc-100 rounded-xl space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Policy Number</span>
+                        <span className="font-mono font-semibold text-zinc-800">{claimDetail.asset.policy_number}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Estimated Value</span>
+                        <span className="font-semibold text-zinc-950">${claimDetail.asset.estimated_value.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Deductible Applied</span>
+                        <span className="font-semibold text-red-600">${claimDetail.asset.deductible.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Premium Rate</span>
+                        <span className="font-medium text-zinc-700">{claimDetail.asset.premium}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <h4 className="font-semibold text-zinc-800">Coverage Details</h4>
+                      <div className="p-2.5 border border-zinc-100 rounded-xl space-y-1.5 bg-white">
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">Collision</span>
+                          <span className="font-medium text-zinc-800">{claimDetail.asset.coverage_collision}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">Comprehensive</span>
+                          <span className="font-medium text-zinc-800">{claimDetail.asset.coverage_comprehensive}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">Liability Limit</span>
+                          <span className="font-medium text-zinc-800">{claimDetail.asset.coverage_liability}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs p-2 bg-zinc-50 rounded-lg">
+                      <div className="text-center">
+                        <span className="text-zinc-400 text-[10px] block">Lifetime Claims</span>
+                        <span className="font-bold text-zinc-800">{claimDetail.asset.claims_history_total}</span>
+                      </div>
+                      <div className="text-center border-l border-zinc-200">
+                        <span className="text-zinc-400 text-[10px] block">Last 12 Months</span>
+                        <span className="font-bold text-zinc-800">{claimDetail.asset.claims_history_12mo}</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center p-6 border border-dashed border-zinc-200 rounded-xl">
+                    <CreditCard className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
+                    <p className="text-xs text-zinc-500">No asset declarations found for policyholder.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "logs" && (
+              <div className="space-y-6">
+                {/* Payout log */}
+                <div>
+                  <h3 className="font-semibold text-zinc-900 text-sm flex items-center gap-1.5 mb-3">
+                    <CreditCard className="w-4 h-4 text-zinc-500" /> Settlement Payout
+                  </h3>
+                  {claimDetail?.payment ? (
+                    <div className="p-4 bg-green-50/50 border border-green-200/60 rounded-xl space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-zinc-600">Settled Amount</span>
+                        <span className="font-bold text-green-700 text-sm">${claimDetail.payment.amount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-600">Method</span>
+                        <span className="font-medium text-zinc-800">{claimDetail.payment.method.replace('_', ' ')}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-zinc-600">Status</span>
+                        <span className="px-2 py-0.5 rounded bg-green-100 text-green-800 font-semibold text-[10px]">
+                          {claimDetail.payment.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[10px] text-zinc-400 pt-1 border-t border-green-100/50">
+                        <span>Processed At</span>
+                        <span>{new Date(claimDetail.payment.created_at).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-zinc-50 border border-zinc-100 rounded-xl text-center text-xs text-zinc-500">
+                      {claimDetail?.status === "denied" 
+                        ? "Claim denied — No payment processed." 
+                        : "No settlement payout processed yet."}
+                    </div>
+                  )}
+                </div>
+
+                {/* Email Notifications */}
+                <div>
+                  <h3 className="font-semibold text-zinc-900 text-sm flex items-center gap-1.5 mb-3">
+                    <Mail className="w-4 h-4 text-zinc-500" /> Email Notifications Log
+                  </h3>
+                  {claimDetail?.notifications && claimDetail.notifications.length > 0 ? (
+                    <div className="space-y-3">
+                      {claimDetail.notifications.map((n) => (
+                        <div key={n.id} className="p-3 bg-white border border-zinc-200/80 rounded-xl text-xs space-y-1.5 shadow-sm">
+                          <div className="flex justify-between items-start">
+                            <span className="font-semibold text-zinc-800 truncate max-w-[150px]">{n.subject}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${
+                              n.status === "sent" ? "bg-green-50 text-green-700 border border-green-150" :
+                              n.status === "pending" ? "bg-yellow-50 text-yellow-700 border border-yellow-150" :
+                              "bg-red-50 text-red-700 border border-red-150"
+                            }`}>
+                              {n.status.toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-zinc-500">Recipient: {n.recipient_email}</p>
+                          <p className="text-[9px] text-zinc-400">{new Date(n.created_at).toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-zinc-50 border border-zinc-100 rounded-xl text-center text-xs text-zinc-500">
+                      No notifications sent yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

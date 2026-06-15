@@ -76,7 +76,7 @@ export default function DashboardLayout({
   ];
 
   return (
-    <div className="h-screen overflow-hidden bg-white text-zinc-900">
+    <div className="h-screen bg-white text-zinc-900">
       {/* Mobile sidebar toggle */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -171,7 +171,7 @@ export default function DashboardLayout({
           </button>
         </div>
         <div className="flex flex-1 min-h-0">
-          <div className={`flex-1 overflow-y-auto p-4 md:p-8`}>
+          <div className={`flex-1 min-h-0 overflow-y-auto p-4 md:p-8`}>
             {children}
           </div>
           {chatOpen && (

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 
 export function DotDistortion() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mousePos = { x: -9999, y: -9999 };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -11,7 +12,6 @@ export function DotDistortion() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let mouse = { x: -9999, y: -9999 };
     let animId: number;
     const spacing = 16;
     const radius = 38;
@@ -26,26 +26,19 @@ export function DotDistortion() {
     window.addEventListener("resize", resize);
 
     const onMouseMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      mouse.x = e.clientX - rect.left;
-      mouse.y = e.clientY - rect.top;
+      mousePos.x = e.clientX;
+      mousePos.y = e.clientY;
     };
 
-    const onMouseLeave = () => {
-      mouse.x = -9999;
-      mouse.y = -9999;
-    };
-
-    canvas.addEventListener("mousemove", onMouseMove);
-    canvas.addEventListener("mouseleave", onMouseLeave);
+    window.addEventListener("mousemove", onMouseMove);
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       for (let y = 0; y <= canvas.height; y += spacing) {
         for (let x = 0; x <= canvas.width; x += spacing) {
-          const dx = x - mouse.x;
-          const dy = y - mouse.y;
+          const dx = x - mousePos.x;
+          const dy = y - mousePos.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           let px = x;
@@ -76,15 +69,14 @@ export function DotDistortion() {
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
-      canvas.removeEventListener("mousemove", onMouseMove);
-      canvas.removeEventListener("mouseleave", onMouseLeave);
+      window.removeEventListener("mousemove", onMouseMove);
     };
   }, []);
 
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-auto z-[1]"
+      className="absolute inset-0 w-full h-full pointer-events-none z-[1]"
       aria-hidden="true"
     />
   );

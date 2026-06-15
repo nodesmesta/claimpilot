@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 
 export function CursorGlow() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mousePos = { x: -500, y: -500 };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -49,9 +50,8 @@ export function CursorGlow() {
     window.addEventListener("resize", resize);
 
     const onMouseMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      mouse.x = e.clientX - rect.left;
-      mouse.y = e.clientY - rect.top;
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
     };
 
     const onMouseLeave = () => {
@@ -59,8 +59,8 @@ export function CursorGlow() {
       mouse.y = -500;
     };
 
-    canvas.addEventListener("mousemove", onMouseMove);
-    canvas.addEventListener("mouseleave", onMouseLeave);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseleave", onMouseLeave);
 
     const connectionDist = 150;
     const mouseRadius = 200;
@@ -146,15 +146,15 @@ export function CursorGlow() {
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
-      canvas.removeEventListener("mousemove", onMouseMove);
-      canvas.removeEventListener("mouseleave", onMouseLeave);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseleave", onMouseLeave);
     };
   }, []);
 
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-auto z-[1]"
+      className="absolute inset-0 w-full h-full pointer-events-none z-[1]"
       aria-hidden="true"
     />
   );

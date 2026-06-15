@@ -13,6 +13,7 @@ import {
   MessageCircle
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { createClient } from "@/app/lib/supabase-browser";
 import type { UserProfile, SubscriptionStatus } from "@/app/lib/types";
 import AIChatPanel from "@/app/components/AIChatPanel";
@@ -26,6 +27,7 @@ export default function DashboardLayout({
   const [chatOpen, setChatOpen] = useState(false);
   const [user, setUser] = useState<{ email?: string; avatar_url?: string; full_name?: string; subscription_status?: SubscriptionStatus } | null>(null);
   const supabase = createClient();
+  const pathname = usePathname();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user: u } }) => {
@@ -158,15 +160,42 @@ export default function DashboardLayout({
       {/* Main content */}
       <main className="md:ml-64 h-screen flex flex-col bg-gradient-to-br from-white via-white to-blue-50/30">
         {/* Navbar */}
-        <div className="flex-shrink-0 z-20 bg-white/80 backdrop-blur-xl border-b border-zinc-200 px-4 md:px-8 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-zinc-900">ClaimPilot</h1>
-          <button
-            onClick={() => setChatOpen(!chatOpen)}
-            className={`cursor-pointer flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${chatOpen ? "bg-zinc-200 text-zinc-700" : "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/20 hover:opacity-90"}`}
-          >
-            <MessageCircle className="w-4 h-4" />
-            {chatOpen ? "Close Chat" : "Chat with AI"}
-          </button>
+        <div className="flex-shrink-0 z-20 bg-white/80 backdrop-blur-xl border-b border-zinc-200 px-4 md:px-8 pt-3 pb-0.5 flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-semibold text-zinc-900">ClaimPilot</h1>
+            <button
+              onClick={() => setChatOpen(!chatOpen)}
+              className={`cursor-pointer flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${chatOpen ? "bg-zinc-200 text-zinc-700" : "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/20 hover:opacity-90"}`}
+            >
+              <MessageCircle className="w-4 h-4" />
+              {chatOpen ? "Close Chat" : "Chat with AI"}
+            </button>
+          </div>
+          
+          {/* Upper Tab Navigation */}
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-1.5">
+            {[
+              { name: "Overview", href: "/dashboard" },
+              { name: "Claims", href: "/dashboard/claims" },
+              { name: "Agents", href: "/dashboard/agents" },
+              { name: "Assets", href: "/dashboard/assets" },
+            ].map((tab) => {
+              const active = pathname === tab.href;
+              return (
+                <Link
+                  key={tab.name}
+                  href={tab.href}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold tracking-wide transition-all duration-250 border ${
+                    active
+                      ? "bg-zinc-900 text-white border-zinc-900 shadow-sm"
+                      : "text-zinc-500 border-transparent hover:text-zinc-900 hover:bg-zinc-100"
+                  }`}
+                >
+                  {tab.name}
+                </Link>
+              );
+            })}
+          </div>
         </div>
         <div className="flex flex-1 min-h-0">
           <div className={`flex-1 overflow-y-auto p-4 md:p-8`}>

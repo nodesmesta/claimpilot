@@ -273,6 +273,14 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* ── Page Header ─────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-900">Overview</h1>
+          <p className="text-zinc-500 mt-1">Summary of all claims and investigation activity</p>
+        </div>
+      </div>
+
       {/* ── Row 1: Summary KPIs ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total */}

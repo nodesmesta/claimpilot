@@ -22,6 +22,7 @@ import {
   Download,
   ArrowUpDown,
 } from "lucide-react";
+import DashboardTour from "./tour";
 
 interface Claim {
   id: string;
@@ -352,6 +353,9 @@ export default function DashboardPage() {
           <p className="text-zinc-500 mt-1">Summary of all claims and investigation activity</p>
         </div>
       </div>
+
+      {/* ── Tour ───────────────────────────────────────────────────────── */}
+      {!loading && claims.length === 0 && <DashboardTour />}
 
       {/* ── Row 1: Summary KPIs ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">

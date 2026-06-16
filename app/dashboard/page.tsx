@@ -23,6 +23,7 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import DashboardTour from "./tour";
+import { getOnboarding, setOnboarding } from "@/app/lib/onboarding";
 
 interface Claim {
   id: string;
@@ -186,6 +187,16 @@ export default function DashboardPage() {
       .then((json) => setClaims(json.data || []))
       .finally(() => setLoading(false));
   }, []);
+
+  // Reset onboarding tour when database is empty (e.g. after reset)
+  useEffect(() => {
+    if (claims.length === 0) {
+      const current = getOnboarding();
+      if (current === "completed" || current === "assets" || current === "claims") {
+        setOnboarding("dashboard");
+      }
+    }
+  }, [claims.length]);
 
   /* ── Derived statistics ──────────────────────────────────────── */
   const stats = useMemo(() => {

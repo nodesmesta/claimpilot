@@ -59,7 +59,7 @@ export default function AssetsPage() {
           text: `Asset uploaded successfully: ${data.asset.policyholder} — ${data.asset.policy_number}`,
           type: "success",
         });
-        setOnboarding("claims");
+        setOnboarding("completed");
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : "Upload failed";
         logs.push({
@@ -98,7 +98,7 @@ export default function AssetsPage() {
         </div>
       </div>
 
-      <OnboardingBanner target="assets" isEmpty={assets.length === 0} />
+      <OnboardingBanner isEmpty={assets.length === 0} />
 
       {uploadLogs.length > 0 && (
         <div className="space-y-2">

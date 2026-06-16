@@ -178,25 +178,29 @@ function Sparkline({ values, color = "#6366f1" }: { values: number[]; color?: st
 
 export default function DashboardPage() {
   const [claims, setClaims] = useState<Claim[]>([]);
+  const [assets, setAssets] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortMode, setSortMode] = useState<"urgency" | "newest" | "oldest" | "amount">("urgency");
 
   useEffect(() => {
-    fetch("/api/claims")
-      .then((r) => r.json())
-      .then((json) => setClaims(json.data || []))
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch("/api/claims").then((r) => r.json()),
+      fetch("/api/assets").then((r) => r.json()),
+    ]).then(([claimsJson, assetsJson]) => {
+      setClaims(claimsJson.data || []);
+      setAssets(assetsJson.data || []);
+    }).finally(() => setLoading(false));
   }, []);
 
   // Reset onboarding tour when database is empty (e.g. after reset)
   useEffect(() => {
-    if (claims.length === 0) {
+    if (assets.length === 0) {
       const current = getOnboarding();
-      if (current === "completed" || current === "assets" || current === "claims") {
+      if (current === "completed" || current === "assets") {
         setOnboarding("dashboard");
       }
     }
-  }, [claims.length]);
+  }, [assets.length]);
 
   /* ── Derived statistics ──────────────────────────────────────── */
   const stats = useMemo(() => {
@@ -366,10 +370,10 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Tour ───────────────────────────────────────────────────────── */}
-      {!loading && claims.length === 0 && <DashboardTour />}
+      {!loading && assets.length === 0 && <DashboardTour />}
 
       {/* ── Row 1: Summary KPIs ────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div data-tour="tour-kpi" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {/* Total */}
         <div className="p-5 rounded-2xl bg-white/70 backdrop-blur-sm border border-zinc-200 hover:shadow-lg hover:shadow-blue-500/5 transition-all duration-300 group">
           <div className="flex items-center justify-between mb-3">
@@ -573,7 +577,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── Row 2: Charts ─────────────────────────────────────────────── */}
-      <div className="grid lg:grid-cols-5 gap-4">
+      <div data-tour="tour-charts" className="grid lg:grid-cols-5 gap-4">
         {/* Outcome Donut */}
         <div className="p-6 rounded-2xl bg-white/70 backdrop-blur-sm border border-zinc-200 shadow-sm">
           <h3 className="font-semibold text-zinc-900 mb-1 flex items-center gap-2">
@@ -721,7 +725,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Row 3: Evidence Quality ───────────────────────────────────── */}
-      <div>
+      <div data-tour="tour-evidence">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-zinc-900">Evidence Quality</h2>
           <p className="text-xs text-zinc-400">Documentation completeness across all claims</p>
@@ -822,7 +826,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Row 4: Recent Claims ───────────────────────────────────────── */}
-      <div>
+      <div data-tour="tour-claims">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-semibold text-zinc-900">Recent Claims</h2>

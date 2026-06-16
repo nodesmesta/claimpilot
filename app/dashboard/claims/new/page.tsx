@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
+import OnboardingBanner from "../../onboarding-banner";
+import { setOnboarding } from "@/app/lib/onboarding";
 
 export default function NewClaimPage() {
   const router = useRouter();
@@ -21,6 +23,7 @@ export default function NewClaimPage() {
       const res = await fetch("/api/claims", { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      setOnboarding("completed");
       router.push(`/dashboard/claims/${data.room_id}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -58,6 +61,7 @@ export default function NewClaimPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      setOnboarding("completed");
       router.push(`/dashboard/claims/${data.room_id}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -70,6 +74,7 @@ export default function NewClaimPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
+      <OnboardingBanner target="claims" isEmpty={false} />
       <div className="rounded-2xl bg-white/60 backdrop-blur-sm border border-zinc-200 shadow-sm overflow-hidden">
         <div className="px-8 py-6 border-b border-zinc-200">
           <h1 className="text-2xl font-bold text-zinc-900">Submit New Claim</h1>

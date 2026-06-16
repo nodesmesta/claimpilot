@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Upload, FileText, RefreshCw, Calendar, Shield, CreditCard, Activity, Car, Trash2, ShieldAlert, CheckCircle, XCircle } from "lucide-react";
+import OnboardingBanner from "../onboarding-banner";
+import { setOnboarding } from "@/app/lib/onboarding";
 
 interface Asset {
   id: string;
@@ -57,6 +59,7 @@ export default function AssetsPage() {
           text: `Asset uploaded successfully: ${data.asset.policyholder} — ${data.asset.policy_number}`,
           type: "success",
         });
+        setOnboarding("claims");
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : "Upload failed";
         logs.push({
@@ -94,6 +97,8 @@ export default function AssetsPage() {
           </label>
         </div>
       </div>
+
+      <OnboardingBanner target="assets" isEmpty={assets.length === 0} />
 
       {uploadLogs.length > 0 && (
         <div className="space-y-2">

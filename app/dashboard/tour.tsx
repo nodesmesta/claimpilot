@@ -15,7 +15,7 @@ import {
   Upload,
   ArrowRight,
 } from "lucide-react";
-import { setOnboarding } from "@/app/lib/onboarding";
+import { getOnboarding, setOnboarding } from "@/app/lib/onboarding";
 
 const STEPS = [
   {
@@ -75,8 +75,8 @@ export default function DashboardTour() {
   const [entering, setEntering] = useState(false);
 
   useEffect(() => {
-    const seen = localStorage.getItem("claimpilot-onboarding");
-    if (!seen) {
+    const stage = getOnboarding();
+    if (stage === "dashboard") {
       const timer = setTimeout(() => {
         setVisible(true);
         requestAnimationFrame(() => setEntering(true));

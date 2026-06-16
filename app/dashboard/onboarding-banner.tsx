@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Upload, ArrowRight, Sparkles, CheckCircle } from "lucide-react";
-import { getOnboarding } from "@/app/lib/onboarding";
+import { getOnboarding, setOnboarding } from "@/app/lib/onboarding";
 
 interface Props {
   isEmpty: boolean;
@@ -36,18 +36,19 @@ export default function OnboardingBanner({ isEmpty }: Props) {
             </p>
             <div className="flex items-center gap-3 mt-4">
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-100 rounded-lg">
-                <CheckCircle className="w-3.5 h-3.5" /> Step 2 of 2
+                <CheckCircle className="w-3.5 h-3.5" /> Step 2 of 3
               </span>
               <span className="text-xs text-zinc-400">
-                Tour is almost done!
+                Upload an asset or skip to claims
               </span>
             </div>
           </div>
           <Link
-            href="/dashboard/claims/new"
+            href="/dashboard/claims"
+            onClick={() => setOnboarding("claims")}
             className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-700 hover:bg-white/60 rounded-xl transition-colors shrink-0"
           >
-            Skip <ArrowRight className="w-3.5 h-3.5" />
+            Skip to Claims <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </div>

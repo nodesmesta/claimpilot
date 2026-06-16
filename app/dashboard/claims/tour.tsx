@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
-import { Sparkles, ChevronRight, ChevronLeft, X } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { FileText, ChevronRight, ChevronLeft, Plus, Shield, Clock, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { getOnboarding, setOnboarding } from "@/app/lib/onboarding";
 
 type StepDef = {
@@ -14,45 +13,32 @@ type StepDef = {
 
 const STEPS: StepDef[] = [
   {
-    title: "Welcome to ClaimPilot",
+    title: "Managing Claims",
     description:
-      "Your adjuster dashboard for managing insurance claims. Let's take a quick tour so you know where everything is.",
+      "This page lists all submitted insurance claims. Each claim card shows the status, risk level, claim amount, and assigned agents at a glance. You can create, review, and monitor claims from here.",
   },
   {
-    title: "Key Metrics at a Glance",
+    title: "Create a New Claim",
     description:
-      "Six KPI cards track your most important numbers — total claims, active investigations, approval rate, settlement averages, resolution time, and high-risk alerts. Hover any card to reveal deeper breakdowns.",
-    target: "tour-kpi",
+      "Click the New Claim button to start a new insurance claim. You'll select a policyholder, describe the incident, and set your adjuster agents to work on it.",
+    target: "tour-claims-new",
     placement: "bottom",
   },
   {
-    title: "Charts & Analytics",
+    title: "Claim Cards & Statuses",
     description:
-      "Five chart panels visualize outcomes, weekly trends, incident types, risk distribution, and financial overview. Even without data, the placeholder charts show you exactly where each insight will appear.",
-    target: "tour-charts",
-    placement: "top",
-  },
-  {
-    title: "Evidence Quality",
-    description: "Track documentation completeness — police reports, witness statements, photos, and filing delays — to spot weak claims early.",
-    target: "tour-evidence",
-    placement: "top",
-  },
-  {
-    title: "Claims & Export",
-    description: "Sort claims by urgency, date, or amount. Aging indicators highlight overdue items. Export data as CSV with one click using the Download button.",
-    target: "tour-claims",
+      "Each claim card shows key info at a glance: claim ID, policyholder, risk level badge (Low / Medium / High), claim amount, incident type, decision status (Investigating / Approved / Denied / Partial), email and payment status, and assigned agent count. Click any card to open its detail view.",
+    target: "tour-claims-list",
     placement: "top",
   },
 ];
 
-export default function DashboardTour() {
+export default function ClaimsTour() {
   const [visible, setVisible] = useState(false);
   const [entering, setEntering] = useState(false);
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
-  const tooltipRef = useRef<HTMLDivElement>(null);
 
   const measure = useCallback(() => {
     const s = STEPS[step];
@@ -66,7 +52,7 @@ export default function DashboardTour() {
 
   useEffect(() => {
     const stage = getOnboarding();
-    if (stage === "dashboard") {
+    if (stage === "claims") {
       const timer = setTimeout(() => {
         setVisible(true);
         requestAnimationFrame(() => {
@@ -93,6 +79,7 @@ export default function DashboardTour() {
     if (step < STEPS.length - 1) {
       setStep((s) => s + 1);
     } else {
+      setOnboarding("completed");
       setStep(0);
       setEntering(false);
       setTimeout(() => {
@@ -115,18 +102,6 @@ export default function DashboardTour() {
     setTimeout(() => setVisible(false), 200);
   }, []);
 
-  const complete = useCallback(() => {
-    setOnboarding("assets");
-    setStep(0);
-    setEntering(false);
-    document.body.style.overflow = "";
-    setTimeout(() => {
-      setVisible(false);
-      setDone(true);
-      requestAnimationFrame(() => setEntering(true));
-    }, 200);
-  }, []);
-
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") dismiss();
@@ -143,13 +118,12 @@ export default function DashboardTour() {
 
   return (
     <>
-      {/* Dark overlay with spotlight cutout */}
+      {/* Dark overlay with spotlight */}
       {visible && (
         <div
           className="fixed inset-0 z-40 bg-black/60 transition-opacity duration-500"
           style={{ opacity: entering ? 1 : 0 }}
         >
-          {/* Spotlight cutout — clear hole with border glow */}
           {pos && s.target && (
             <div
               className="absolute rounded-xl border-2 border-white/70 shadow-[0_0_20px_rgba(255,255,255,0.3)]"
@@ -166,43 +140,9 @@ export default function DashboardTour() {
         </div>
       )}
 
-      {/* Done card */}
-      {done && entering && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-500">
-          <div className="relative w-full max-w-md mx-4 bg-white/90 backdrop-blur-2xl rounded-3xl border border-white/40 shadow-2xl overflow-hidden transition-all duration-500">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500" />
-            <div className="p-8 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-                <Sparkles className="w-8 h-8 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-bold text-zinc-900">You&apos;re all set!</h3>
-              <p className="text-sm text-zinc-500 mt-2 leading-relaxed">
-                Now let&apos;s upload your first asset — a policy document or vehicle registration.
-              </p>
-              <div className="flex items-center justify-center gap-3 mt-6">
-                <button
-                  onClick={() => { setOnboarding("claims"); setDone(false); }}
-                  className="px-4 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-700 transition-colors rounded-xl hover:bg-white/60"
-                >
-                  Later
-                </button>
-                <Link
-                  href="/dashboard/assets"
-                  onClick={() => setOnboarding("assets")}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl shadow-lg shadow-blue-500/25 transition-all duration-200"
-                >
-                  Upload Asset <ChevronRight className="w-4 h-4" />
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Floating tooltip */}
       {visible && (
         <div
-          ref={tooltipRef}
           className="fixed z-50 transition-all duration-500"
           style={{
             opacity: entering ? 1 : 0,
@@ -229,7 +169,6 @@ export default function DashboardTour() {
               </div>
             )}
 
-            {/* Content */}
             <h4 className="text-base font-bold text-zinc-900">{s.title}</h4>
             <p className="text-sm text-zinc-500 mt-1.5 leading-relaxed">{s.description}</p>
 
@@ -242,7 +181,7 @@ export default function DashboardTour() {
                 Skip tour
               </button>
               <div className="flex items-center gap-2">
-                {step > 1 && (
+                {step > 0 && (
                   <button
                     onClick={prev}
                     className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors"

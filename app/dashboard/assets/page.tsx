@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Upload, FileText, RefreshCw, Calendar, Shield, CreditCard, Activity, Car, Trash2, ShieldAlert, CheckCircle, XCircle } from "lucide-react";
 import OnboardingBanner from "../onboarding-banner";
 import { setOnboarding } from "@/app/lib/onboarding";
+import AssetsTour from "./tour";
 
 interface Asset {
   id: string;
@@ -90,7 +91,7 @@ export default function AssetsPage() {
           <button onClick={fetchAssets} className="p-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition">
             <RefreshCw className={`w-4 h-4 text-zinc-600 ${loading ? "animate-spin" : ""}`} />
           </button>
-          <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium hover:opacity-90 transition shadow-lg shadow-blue-500/20 cursor-pointer">
+          <label data-tour="tour-assets-upload" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium hover:opacity-90 transition shadow-lg shadow-blue-500/20 cursor-pointer">
             <Upload className="w-4 h-4" />
             {uploading ? "Uploading..." : "Upload PDF"}
             <input type="file" accept=".pdf" multiple onChange={handleUpload} className="hidden" disabled={uploading} />
@@ -99,6 +100,7 @@ export default function AssetsPage() {
       </div>
 
       <OnboardingBanner isEmpty={assets.length === 0} />
+      <AssetsTour />
 
       {uploadLogs.length > 0 && (
         <div className="space-y-2">
@@ -135,7 +137,7 @@ export default function AssetsPage() {
             <p className="text-sm text-zinc-400 mt-1">Upload a policy declaration PDF to get started</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div data-tour="tour-assets-list" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {assets.map((a) => (
               <div key={a.id} className="p-6 rounded-2xl bg-white/60 backdrop-blur-sm border border-zinc-200 shadow-sm flex flex-col justify-between hover:border-blue-300 hover:shadow-lg transition-all duration-200 relative group">
                 

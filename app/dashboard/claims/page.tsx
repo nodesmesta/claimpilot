@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FileText, Plus, RefreshCw, Mail, DollarSign, Shield, Clock, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import ClaimsTour from "./tour";
 
 interface Claim {
   id: string;
@@ -92,11 +93,13 @@ export default function ClaimsPage() {
           <button onClick={fetchClaims} className="cursor-pointer p-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition">
             <RefreshCw className={`w-4 h-4 text-zinc-600 ${loading ? "animate-spin" : ""}`} />
           </button>
-          <Link href="/dashboard/claims/new" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium hover:opacity-90 transition shadow-lg shadow-blue-500/20">
+          <Link data-tour="tour-claims-new" href="/dashboard/claims/new" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium hover:opacity-90 transition shadow-lg shadow-blue-500/20">
             <Plus className="w-4 h-4" /> New Claim
           </Link>
         </div>
       </div>
+
+      <ClaimsTour />
 
       {loading && claims.length === 0 ? (
         <div className="p-12 text-center text-zinc-500">
@@ -112,7 +115,7 @@ export default function ClaimsPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div data-tour="tour-claims-list" className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {claims.map((claim) => (
             <Link key={claim.id} href={`/dashboard/claims/${claim.room_id}`}
               className={`block p-5 rounded-2xl border backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-200 ${getStatusCardBg(claim.status)}`}>

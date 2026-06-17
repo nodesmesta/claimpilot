@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Bot,
@@ -25,6 +25,8 @@ import { OrchestrationFlow } from "./components/orchestration-flow";
 import { LogoMarquee } from "./components/logo-marquee";
 
 export default function Home() {
+  const [activeAgent, setActiveAgent] = useState<number | null>(null);
+
   useEffect(() => {
     const elements = document.querySelectorAll(".scroll-reveal");
     const observer = new IntersectionObserver(
@@ -139,21 +141,28 @@ export default function Home() {
             <p className="text-zinc-500 text-lg">Each uses a different framework, recruited dynamically</p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             {[
+              { name: "Gateway", role: "Secure entry point", framework: "Band Platform", icon: Shield, color: "cyan", features: ["Secure claim submission", "Create Band investigation room", "Link frontend & AI team"] },
               { name: "Claim Reviewer", role: "Always in room", framework: "Band Platform", icon: Users, color: "blue", features: ["Extract facts & classify risk", "Dynamic agent recruitment", "Answer clarification queries"] },
               { name: "Fraud Investigator", role: "Recruited on-demand", framework: "Band Platform", icon: Search, color: "red", features: ["Pattern & anomaly analysis", "Cross-reference fraud indicators", "Clarification loop with Reviewer"] },
               { name: "Senior Adjuster", role: "Recruited on-demand", framework: "Band Platform", icon: Scale, color: "green", features: ["Final decision authority", "Settlement calculation", "Compliance & regulatory check"] },
               { name: "Resolution Agent", role: "Recruited post-decision", framework: "Band Platform", icon: CheckCircle, color: "purple", features: ["Email notification delivery", "Payment processing", "Case closure & audit trail"] },
             ].map((agent, i) => (
-              <div key={i} className={`scroll-reveal group p-8 rounded-2xl bg-white/70 backdrop-blur-sm border transition-all duration-300 hover:-translate-y-2 ${
-                agent.color === "blue" ? "border-blue-200 hover:border-blue-400 hover:shadow-xl hover:shadow-blue-500/10" :
-                agent.color === "red" ? "border-red-200 hover:border-red-400 hover:shadow-xl hover:shadow-red-500/10" :
-                agent.color === "purple" ? "border-purple-200 hover:border-purple-400 hover:shadow-xl hover:shadow-purple-500/10" :
-                "border-green-200 hover:border-green-400 hover:shadow-xl hover:shadow-green-500/10"
-              }`}>
+              <div
+                key={i}
+                onClick={() => setActiveAgent(activeAgent === i ? null : i)}
+                className={`scroll-reveal cursor-pointer p-8 rounded-2xl bg-white/70 backdrop-blur-sm border transition-all duration-300 hover:-translate-y-2 ${
+                  agent.color === "cyan" ? "border-cyan-200 hover:border-cyan-400 hover:shadow-xl hover:shadow-cyan-500/10" :
+                  agent.color === "blue" ? "border-blue-200 hover:border-blue-400 hover:shadow-xl hover:shadow-blue-500/10" :
+                  agent.color === "red" ? "border-red-200 hover:border-red-400 hover:shadow-xl hover:shadow-red-500/10" :
+                  agent.color === "purple" ? "border-purple-200 hover:border-purple-400 hover:shadow-xl hover:shadow-purple-500/10" :
+                  "border-green-200 hover:border-green-400 hover:shadow-xl hover:shadow-green-500/10"
+                } ${activeAgent === i ? "blur-sm" : ""}`}
+              >
                 <div className="flex items-center gap-3 mb-6">
                   <div className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-lg ${
+                    agent.color === "cyan" ? "bg-cyan-500 shadow-cyan-500/20" :
                     agent.color === "blue" ? "bg-blue-500 shadow-blue-500/20" :
                     agent.color === "red" ? "bg-red-500 shadow-red-500/20" :
                     agent.color === "purple" ? "bg-purple-500 shadow-purple-500/20" :
@@ -164,6 +173,7 @@ export default function Home() {
                   <div>
                     <h3 className="font-semibold text-lg text-zinc-900">{agent.name}</h3>
                     <p className={`text-xs ${
+                      agent.color === "cyan" ? "text-cyan-600" :
                       agent.color === "blue" ? "text-blue-600" : agent.color === "red" ? "text-red-600" : agent.color === "purple" ? "text-purple-600" : "text-green-600"
                     }`}>{agent.role}</p>
                   </div>
@@ -172,6 +182,7 @@ export default function Home() {
                   {agent.features.map((f, j) => (
                     <div key={j} className="flex items-center gap-2 text-sm text-zinc-600">
                       <CheckCircle className={`w-4 h-4 shrink-0 ${
+                        agent.color === "cyan" ? "text-cyan-500" :
                         agent.color === "blue" ? "text-blue-500" : agent.color === "red" ? "text-red-500" : agent.color === "purple" ? "text-purple-500" : "text-green-500"
                       }`} />
                       <span>{f}</span>
@@ -180,6 +191,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center gap-2 pt-4 border-t border-zinc-100">
                   <span className={`text-xs px-2 py-1 rounded font-medium ${
+                    agent.color === "cyan" ? "bg-cyan-50 text-cyan-600" :
                     agent.color === "blue" ? "bg-blue-50 text-blue-600" :
                     agent.color === "red" ? "bg-red-50 text-red-600" :
                     agent.color === "purple" ? "bg-purple-50 text-purple-600" :

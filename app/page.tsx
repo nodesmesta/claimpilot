@@ -158,7 +158,7 @@ export default function Home() {
                   agent.color === "red" ? "border-red-200 hover:border-red-400 hover:shadow-xl hover:shadow-red-500/10" :
                   agent.color === "purple" ? "border-purple-200 hover:border-purple-400 hover:shadow-xl hover:shadow-purple-500/10" :
                   "border-green-200 hover:border-green-400 hover:shadow-xl hover:shadow-green-500/10"
-                } ${activeAgent === i ? "blur-sm" : ""}`}
+                } ${activeAgent !== null && activeAgent !== i ? "blur-sm" : ""}`}
               >
                 <div className="flex items-center gap-3 mb-6">
                   <div className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-lg ${
